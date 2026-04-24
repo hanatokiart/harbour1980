@@ -2,73 +2,112 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - 玩家/交易端</title>
+    <title>玩家控制器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #bb9af7; --green: #9ece6a; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
-        .section { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid #414868; }
-        .input-group { display: flex; gap: 5px; margin-top: 10px; }
-        input { background: #16161e; border: 1px solid #414868; color: white; padding: 10px; border-radius: 5px; width: 100%; }
-        .btn-buy { background: #e0af68; color: #1a1b26; font-weight: bold; border: none; padding: 10px; border-radius: 5px; white-space: nowrap; }
+        :root { --bg: #0f172a; --card: #1e293b; --green: #9ece6a; --red: #f7768e; }
+        body { font-family: sans-serif; background: var(--bg); color: #c0caf5; padding: 15px; margin: 0; }
+        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #334155; }
+        h3 { margin: 0 0 10px; font-size: 0.9rem; color: #38bdf8; border-bottom: 1px solid #334155; }
+        .prod-grid { display: grid; gap: 10px; }
+        .p-btn { background: #334155; border: 1px solid #475569; color: white; padding: 12px; border-radius: 8px; text-align: left; }
+        .p-btn:disabled { opacity: 0.3; }
+        .offer-box { background: #020617; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #e0af68; }
+        input { width: 42%; padding: 10px; background: #1e293b; border: 1px solid #334155; color: white; margin-bottom: 10px; border-radius: 5px; }
+        .btn-main { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-    <h2 id="pId" style="text-align:center; color: var(--accent);">玩家載入中...</h2>
+    <h2 id="pId" style="text-align:center">玩家載入中...</h2>
 
     <div class="section">
-        <h3>🛒 市場入貨 (2-3件)</h3>
-        <div id="market" style="display: grid; gap: 8px;"></div>
+        <h3 id="role-name">身分載入中...</h3>
+        <div style="font-size: 1.2rem; color: var(--green)">現金: <span id="cash">$0</span></div>
     </div>
 
-    <div class="section" style="border-color: #e0af68;">
-        <h3 style="color: #e0af68;">🤝 講價成交 (買入他人產品)</h3>
-        <p style="font-size: 0.7em; opacity: 0.8;">當有人推銷完，你可以在此出價買入。</p>
-        <select id="seller-select" style="width:100%; padding:8px; background:#16161e; color:white; border-radius:5px;">
-            <option value="">選擇賣家 (邊個 Sell 完?)</option>
-            <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
+    <div class="section">
+        <h3>🛒 市場入貨 (本季限 2-3 件)</h3>
+        <div id="market" class="prod-grid"></div>
+    </div>
+
+    <div class="section" style="border-color:#e0af68">
+        <h3 style="color:#e0af68">🤝 議價成交 (買入產品)</h3>
+        <select id="seller" style="width:100%; padding:10px; margin-bottom:10px; background:#1e293b; color:white">
+            <option value="">選擇賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
         </select>
-        <div class="input-group">
-            <input type="number" id="buy-price" placeholder="買入價 $">
-            <input type="number" id="buy-comm" placeholder="佢賺嘅佣金 $">
-        </div>
-        <button class="btn-buy" style="width:100%; margin-top:10px;" onclick="makeOffer()">📤 送出出價 (議價)</button>
+        <input type="number" id="price" placeholder="買入價 $">
+        <input type="number" id="comm" placeholder="畀賣家佣金 $">
+        <button class="btn-main" style="background:#e0af68; color:#0f172a" onclick="sendOffer()">📤 送出出價</button>
     </div>
 
-    <button class="btn-buy" style="background:#f7768e; width:100%; height:50px; margin-top:20px;" onclick="sendAction('SELL', '📢 我推銷緊，邊個買？')">📢 開始推銷！</button>
+    <button class="btn-main" style="background:var(--red); color:white" onclick="sendAct('SELL', '開始推銷！')">📢 我要推銷 (開始倒數)</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        const firebaseConfig = { /* ... 保持不變 ... */ };
+        const firebaseConfig = { apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI", authDomain: "harbour1980-bac14.firebaseapp.com", databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com", projectId: "harbour1980-bac14", appId: "1:1010384901946:web:302f99b7565aa9063aa203" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
-        document.getElementById('pId').innerText = `玩家 ${pId}`;
 
-        window.makeOffer = async function() {
-            const seller = document.getElementById('seller-select').value;
-            const price = document.getElementById('buy-price').value;
-            const comm = document.getElementById('buy-comm').value;
+        const PRODS = [
+            { id: "i1", n: "波士機 (手機)", p: 5000, c: 2000, g: "金" },
+            { id: "i2", n: "全能王 (手機)", p: 3000, c: 1200, g: "銀" },
+            { id: "i3", n: "神機 (手機)", p: 1000, c: 400, g: "銅" },
+            { id: "i4", n: "隔世大師 (配件)", p: 5000, c: 2000, g: "金" },
+            { id: "i5", n: "潮流環 (佩戴)", p: 3000, c: 1200, g: "銀" },
+            { id: "i6", n: "健康神 (佩戴)", p: 1000, c: 400, g: "銅" },
+            { id: "i7", n: "無敵衫 (家居)", p: 5000, c: 2000, g: "金" },
+            { id: "i8", n: "速乾神 (服裝)", p: 3000, c: 1200, g: "銀" },
+            { id: "i9", n: "養生杯 (生活)", p: 1000, c: 400, g: "銅" }
+        ];
+
+        onValue(ref(db, 'game_state'), (snap) => {
+            const d = snap.val(); if(!d) return;
+            const me = d.players[pId];
+            document.getElementById('pId').innerText = `玩家 ${pId}`;
+            document.getElementById('role-name').innerText = `🎭 ${me.role.n}`;
+            document.getElementById('cash').innerText = `$${me.cash}`;
             
-            if(!seller || !price || !comm) return alert("請填寫賣家、價格同佣金！");
-            if(seller === pId) return alert("唔可以買自己嘢！");
+            const invCount = me.inv ? me.inv.length : 0;
+            const mkt = document.getElementById('market'); mkt.innerHTML = "";
+            PRODS.forEach(p => {
+                const taker = d.inventory && d.inventory[p.id];
+                let btn = document.createElement('button');
+                btn.className = 'p-btn';
+                btn.disabled = !!taker || invCount >= 3;
+                btn.innerHTML = `<b>${p.n}</b> [${p.g}]<br><small>成本: $${p.p} | 預設佣金: $${p.c}</small>${taker ? ` (已售: ${taker})` : ''}`;
+                if(!btn.disabled) btn.onclick = () => buy(p);
+                mkt.appendChild(btn);
+            });
+        });
 
+        window.buy = async (item) => {
+            const snap = await get(ref(db, `game_state/players/${pId}`));
+            let pData = snap.val();
+            let cost = (pData.role.n === "格價大叔") ? item.p - 500 : item.p;
+            if(pData.cash < cost) return alert("預算不足");
+
+            const up = {};
+            up[`game_state/inventory/${item.id}`] = pId;
+            let inv = pData.inv || []; inv.push(item);
+            up[`game_state/players/${pId}/inv`] = inv;
+            up[`game_state/players/${pId}/cash`] = pData.cash - cost;
+            update(ref(db), up);
+        };
+
+        window.sendOffer = () => {
+            const s = document.getElementById('seller').value;
+            const pr = document.getElementById('price').value;
+            const cm = document.getElementById('comm').value;
+            if(!s || !pr || !cm) return alert("請填寫交易詳情");
             update(ref(db, 'game_state/last_action'), {
-                user: pId,
-                type: "OFFER",
-                seller: seller,
-                price: price,
-                comm: comm,
-                value: `想用 $${price} 買入！賣家賺 $${comm} 佣金。`
+                user: pId, seller: s, price: pr, comm: cm, type: "OFFER", value: `出價: $${pr} 買入，賣家佣金 $${cm}`
             });
         };
 
-        window.sendAction = (t, v) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v });
-        
-        // 其他入貨 Logic 保持不變...
+        window.sendAct = (t, v) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v });
     </script>
 </body>
 </html>
