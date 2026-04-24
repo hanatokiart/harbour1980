@@ -2,49 +2,52 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - 玩家控制器</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>港灣 1980 - 中央管理系統</title>
     <style>
-        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #bb9af7; --green: #9ece6a; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
-        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #414868; }
-        h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .stat-box { background: #16161e; padding: 10px; border-radius: 8px; text-align: center; }
-        .stat-box span { display: block; font-size: 0.7em; color: #565f89; }
-        .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .prod-btn { background: #313244; border: 1px solid #565f89; color: #fff; padding: 10px; border-radius: 8px; font-size: 0.8em; text-align: left; }
-        .prod-btn:disabled { opacity: 0.2; color: #565f89; }
-        .card-box { background: #16161e; border: 1px solid var(--accent); padding: 8px; border-radius: 6px; margin-bottom: 8px; font-size: 0.8em; }
-        .btn { background: #7aa2f7; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-sell { background: #f7768e; margin-top: 10px; font-size: 1.1em; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        .container { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+        .sidebar { background: #020617; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
+        .player-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
+        .player-card h4 { margin: 0 0 5px 0; color: var(--accent); border-bottom: 1px solid #334155; padding-bottom: 5px; }
+        .rule-box { font-size: 0.85em; color: #94a3b8; background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 20px; border-left: 4px solid var(--accent); }
+        .main-stage { padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
+                        display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        #notification h1 { font-size: 4rem; color: var(--accent); margin: 0; }
+        #timer { font-size: 8rem; font-weight: bold; color: white; margin: 20px 0; }
+        .btn-stop { background: var(--danger); color: white; border: none; padding: 20px 40px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; }
+        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; opacity: 0.6; }
     </style>
 </head>
 <body>
-
-    <h2 id="pId-display" style="text-align:center; color: var(--accent);">連線中...</h2>
-
-    <div class="stat-grid">
-        <div class="stat-box"><span>身分</span><div id="my-role">-</div></div>
-        <div class="stat-box"><span>現金</span><div id="my-cash" style="color:var(--green)">$0</div></div>
+    <div class="container">
+        <div class="sidebar">
+            <h2 style="text-align: center;">📊 遊戲數據</h2>
+            <div id="player-list"></div>
+            <div class="rule-box">
+                <b>🏆 得勝資料</b><br>
+                1. 累積佣金最高者勝。<br>
+                2. 輪次結束時，未賣出貨品將扣除全額按金。<br>
+                3. 使用事件卡可扭轉劣勢。
+            </div>
+        </div>
+        <div class="main-stage">
+            <h2 style="font-size: 2.5rem; opacity: 0.2;">請玩家在手機入貨...</h2>
+            <button class="btn-reset" onclick="initGame()">⚠️ 重置遊戲</button>
+        </div>
     </div>
 
-    <div class="section">
-        <h3>🃏 事件手牌 (上限 2)</h3>
-        <div id="hand-cards"></div>
-        <button class="btn" style="background:var(--green); color:#1a1b26" onclick="drawEvent()">🃏 抽取事件卡</button>
+    <div id="notification">
+        <h2 id="note-user" style="color: white; font-size: 2rem;"></h2>
+        <h1 id="note-text"></h1>
+        <div id="timer"></div>
+        <button class="btn-stop" id="stop-btn" onclick="stopTimer()" style="display:none">⏹️ 提前結束 (成交/失敗)</button>
     </div>
-
-    <div class="section">
-        <h3>🛒 入貨區 (不可重複)</h3>
-        <div class="product-grid" id="product-list"></div>
-    </div>
-
-    <button class="btn btn-sell" onclick="commitAction('SELL', '開始 90s 推銷！')">📢 開始推銷倒數</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
@@ -56,98 +59,71 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
-        document.getElementById('pId-display').innerText = `玩家控制 - ${pId}`;
 
-        const PRODUCTS = [
-            { id: "i1", n: "波士機", p: 5000 }, { id: "i2", n: "全能王", p: 3000 },
-            { id: "i3", n: "神機", p: 1000 }, { id: "i4", n: "文書神器", p: 500 },
-            { id: "i5", n: "隔世大師", p: 5000 }, { id: "i6", n: "潮流環", p: 3000 },
-            { id: "i7", n: "健康神", p: 1000 }, { id: "i8", n: "復古錶", p: 500 },
-            { id: "i9", n: "無敵衫", p: 5000 }, { id: "i10", n: "速乾神", p: 3000 },
-            { id: "i11", n: "養生杯", p: 1000 }, { id: "i12", n: "棉花神", p: 500 }
-        ];
+        window.initGame = function() {
+            if(!confirm("確定要重置嗎？")) return;
+            const roles = ["銷售鬼才", "砍價大師", "運氣王", "物流大佬"].sort(() => Math.random() - 0.5);
+            set(ref(db, 'game_state'), {
+                round: 1, inventory: {}, event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨","連鎖效應","黑市交易","物流延誤","名牌效應"].sort(()=>Math.random()-0.5),
+                players: {
+                    P1: { cash: 10000, role: roles[0], inv: [], hand: [], totalComm: 0 },
+                    P2: { cash: 10000, role: roles[1], inv: [], hand: [], totalComm: 0 },
+                    P3: { cash: 10000, role: roles[2], inv: [], hand: [], totalComm: 0 },
+                    P4: { cash: 10000, role: roles[3], inv: [], hand: [], totalComm: 0 }
+                },
+                last_action: { type: "IDLE", user: "SYS", value: "READY" }
+            });
+        };
 
         onValue(ref(db, 'game_state'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            const me = data.players[pId];
-            const invGlobal = data.inventory || {};
-
-            document.getElementById('my-role').innerText = me.role.n;
-            document.getElementById('my-cash').innerText = `$${me.cash}`;
-
-            const handEl = document.getElementById('hand-cards');
-            handEl.innerHTML = "";
-            if(me.hand) {
-                me.hand.forEach((c, idx) => {
-                    handEl.innerHTML += `<div class="card-box"><b>${c.n}</b><br>${c.d} <button onclick="useCard(${idx})" style="float:right">使用</button></div>`;
-                });
-            }
-
-            const listEl = document.getElementById('product-list');
+            const listEl = document.getElementById('player-list');
             listEl.innerHTML = "";
-            PRODUCTS.forEach(item => {
-                const taker = invGlobal[item.id];
-                let btn = document.createElement('button');
-                btn.className = 'prod-btn';
-                if(taker) {
-                    btn.disabled = true;
-                    btn.innerHTML = `${item.n}<br><span style="font-size:0.7em">(已被 ${taker} 入貨)</span>`;
-                } else {
-                    btn.innerHTML = `${item.n}<br><span style="color:var(--green)">$${item.p}</span>`;
-                    btn.onclick = () => draftItem(item);
-                }
-                listEl.appendChild(btn);
+            Object.keys(data.players).forEach(id => {
+                const p = data.players[id];
+                listEl.innerHTML += `<div class="player-card">
+                    <h4>${id} - ${p.role}</h4>
+                    <div>💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm || 0}</div>
+                    <div style="margin-top:5px;">${p.inv ? p.inv.map(i => `<span class="inv-tag">${i.n}</span>`).join('') : ''}</div>
+                </div>`;
             });
+            if (data.last_action.type !== "IDLE" && data.last_action.user !== "SYS") showNotice(data.last_action);
         });
 
-        window.draftItem = async function(item) {
-            const snap = await get(ref(db, `game_state/inventory/${item.id}`));
-            if(snap.exists()) return alert("俾人入咗先喇！");
+        let timerInt;
+        function showNotice(act) {
+            const el = document.getElementById('notification');
+            document.getElementById('note-user').innerText = `玩家 ${act.user}`;
+            document.getElementById('note-text').innerText = act.value;
+            const timer = document.getElementById('timer');
+            const stopBtn = document.getElementById('stop-btn');
             
-            const pSnap = await get(ref(db, `game_state/players/${pId}`));
-            let pData = pSnap.val();
-            if(pData.cash < item.p) return alert("唔夠錢入貨！");
+            clearInterval(timerInt);
+            el.style.display = "flex";
 
-            let newInv = pData.inv || [];
-            newInv.push(item.n);
+            if (act.type === "SELL") {
+                stopBtn.style.display = "block";
+                let count = 90;
+                timerInt = setInterval(() => {
+                    timer.innerText = count + "s";
+                    count--;
+                    if(count < 0) stopTimer();
+                }, 1000);
+            } else {
+                stopBtn.style.display = "none";
+                timer.innerText = "DONE";
+                setTimeout(() => { 
+                    el.style.display = "none";
+                    update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
+                }, 2500);
+            }
+        }
 
-            const updates = {};
-            updates[`game_state/inventory/${item.id}`] = pId;
-            updates[`game_state/players/${pId}/inv`] = newInv;
-            updates[`game_state/players/${pId}/cash`] = pData.cash - item.p;
-            updates[`game_state/last_action`] = { user: pId, type: "DRAFT", value: `入咗貨: ${item.n}`, time: Date.now() };
-            update(ref(db), updates);
-        };
-
-        window.drawEvent = async function() {
-            const pSnap = await get(ref(db, `game_state/players/${pId}`));
-            let hand = pSnap.val().hand || [];
-            if(hand.length >= 2) return alert("手牌滿咗喇！");
-
-            const dSnap = await get(ref(db, `game_state/event_deck`));
-            let deck = dSnap.val() || [];
-            if(deck.length === 0) return alert("卡池空喇！");
-
-            const card = deck.shift();
-            hand.push(card);
-            update(ref(db, `game_state/players/${pId}`), { hand: hand });
-            set(ref(db, `game_state/event_deck`), deck);
-            commitAction('DRAW', `抽到咗: ${card.n}`);
-        };
-
-        window.useCard = async function(idx) {
-            const pSnap = await get(ref(db, `game_state/players/${pId}`));
-            let hand = pSnap.val().hand || [];
-            const card = hand[idx];
-            hand.splice(idx, 1);
-            update(ref(db, `game_state/players/${pId}`), { hand: hand });
-            commitAction('EVENT', `發動: ${card.n}!`);
-        };
-
-        window.commitAction = function(type, val) {
-            update(ref(db, 'game_state/last_action'), { user: pId, type: type, value: val, time: Date.now() });
+        window.stopTimer = function() {
+            clearInterval(timerInt);
+            document.getElementById('notification').style.display = "none";
+            update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
         };
     </script>
 </body>
