@@ -6,28 +6,34 @@
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
-        .container { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+        .container { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
         .sidebar { background: #020617; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
         .player-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
         .player-card h4 { margin: 0 0 5px 0; color: var(--accent); border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .inv-tag { display: inline-block; background: #0ea5e9; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; margin: 2px; color: white; }
+        .rule-box { font-size: 0.85em; color: #94a3b8; background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 20px; border-left: 4px solid var(--accent); }
         .main-stage { padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); 
+        #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
                         display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        #notification h1 { font-size: 5rem; color: var(--accent); margin: 0; }
-        #timer { font-size: 8rem; font-weight: bold; color: white; }
-        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: var(--danger); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; opacity: 0.5; }
-        .btn-reset:hover { opacity: 1; }
+        #notification h1 { font-size: 4rem; color: var(--accent); margin: 0; }
+        #timer { font-size: 8rem; font-weight: bold; color: white; margin: 20px 0; }
+        .btn-stop { background: var(--danger); color: white; border: none; padding: 20px 40px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; }
+        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; opacity: 0.6; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2 style="text-align: center;">📊 實時數據</h2>
+            <h2 style="text-align: center;">📊 遊戲數據</h2>
             <div id="player-list"></div>
+            <div class="rule-box">
+                <b>🏆 得勝資料</b><br>
+                1. 累積佣金最高者勝。<br>
+                2. 輪次結束時，未賣出貨品將扣除全額按金。<br>
+                3. 使用事件卡可扭轉劣勢。
+            </div>
         </div>
         <div class="main-stage">
-            <h2 style="font-size: 3rem; opacity: 0.3;">等待玩家行動...</h2>
+            <h2 style="font-size: 2.5rem; opacity: 0.2;">請玩家在手機入貨...</h2>
             <button class="btn-reset" onclick="initGame()">⚠️ 重置遊戲</button>
         </div>
     </div>
@@ -36,6 +42,7 @@
         <h2 id="note-user" style="color: white; font-size: 2rem;"></h2>
         <h1 id="note-text"></h1>
         <div id="timer"></div>
+        <button class="btn-stop" id="stop-btn" onclick="stopTimer()" style="display:none">⏹️ 提前結束 (成交/失敗)</button>
     </div>
 
     <script type="module">
@@ -53,91 +60,71 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        const ROLES = [
-            { n: "銷售鬼才", d: "推銷倒數延長 10s" }, { n: "砍價大師", d: "入貨按金減 $500" },
-            { n: "運氣王", d: "開局多 1 張事件卡" }, { n: "物流大佬", d: "AP 消耗減 1" }
-        ];
-
-        const EVENTS = [
-            { n: "政府派錢", d: "預算加 $2,000" }, { n: "廣告加持", d: "佣金 x 2" },
-            { n: "稅務減免", d: "不成交罰款 $0" }, { n: "壞貨退回", d: "按金 100% 退回" },
-            { n: "強制購買", d: "買家必須成交" }, { n: "奧客降臨", d: "買家強力壓價" },
-            { n: "連鎖效應", d: "成交後再抽一張" }, { n: "黑市交易", d: "利潤加倍" },
-            { n: "物流延誤", d: "AP 消耗 +1" }, { n: "名牌效應", d: "底價升 $500" }
-        ];
-
         window.initGame = function() {
-            if(!confirm("確定要重置所有數據嗎？")) return;
-            let sRoles = [...ROLES].sort(() => Math.random() - 0.5);
-            let sEvents = [...EVENTS].sort(() => Math.random() - 0.5);
+            if(!confirm("確定要重置嗎？")) return;
+            const roles = ["銷售鬼才", "砍價大師", "運氣王", "物流大佬"].sort(() => Math.random() - 0.5);
             set(ref(db, 'game_state'), {
-                round: 1,
-                inventory: {},
-                event_deck: sEvents,
+                round: 1, inventory: {}, event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨","連鎖效應","黑市交易","物流延誤","名牌效應"].sort(()=>Math.random()-0.5),
                 players: {
-                    P1: { cash: 10000, role: sRoles[0], inv: [], hand: [] },
-                    P2: { cash: 10000, role: sRoles[1], inv: [], hand: [] },
-                    P3: { cash: 10000, role: sRoles[2], inv: [], hand: [] },
-                    P4: { cash: 10000, role: sRoles[3], inv: [], hand: [] }
+                    P1: { cash: 10000, role: roles[0], inv: [], hand: [], totalComm: 0 },
+                    P2: { cash: 10000, role: roles[1], inv: [], hand: [], totalComm: 0 },
+                    P3: { cash: 10000, role: roles[2], inv: [], hand: [], totalComm: 0 },
+                    P4: { cash: 10000, role: roles[3], inv: [], hand: [], totalComm: 0 }
                 },
-                last_action: { type: "IDLE", user: "SYS", value: "遊戲已重置" }
+                last_action: { type: "IDLE", user: "SYS", value: "READY" }
             });
         };
 
         onValue(ref(db, 'game_state'), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-
             const listEl = document.getElementById('player-list');
             listEl.innerHTML = "";
             Object.keys(data.players).forEach(id => {
                 const p = data.players[id];
-                listEl.innerHTML += `
-                    <div class="player-card">
-                        <h4>${id} - ${p.role.n}</h4>
-                        <div>💰 現金: $${p.cash}</div>
-                        <div>📦 庫存: ${p.inv ? p.inv.map(i => `<span class="inv-tag">${i}</span>`).join('') : '無'}</div>
-                        <div style="font-size: 0.8em; color: #94a3b8; margin-top:5px;">🃏 事件卡: ${p.hand ? p.hand.length : 0}/2</div>
-                    </div>`;
+                listEl.innerHTML += `<div class="player-card">
+                    <h4>${id} - ${p.role}</h4>
+                    <div>💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm || 0}</div>
+                    <div style="margin-top:5px;">${p.inv ? p.inv.map(i => `<span class="inv-tag">${i.n}</span>`).join('') : ''}</div>
+                </div>`;
             });
-
-            const act = data.last_action;
-            if (act.type !== "IDLE" && act.user !== "SYS") {
-                showNotice(act);
-            }
+            if (data.last_action.type !== "IDLE" && data.last_action.user !== "SYS") showNotice(data.last_action);
         });
 
         let timerInt;
         function showNotice(act) {
             const el = document.getElementById('notification');
-            const txt = document.getElementById('note-text');
-            const user = document.getElementById('note-user');
+            document.getElementById('note-user').innerText = `玩家 ${act.user}`;
+            document.getElementById('note-text').innerText = act.value;
             const timer = document.getElementById('timer');
+            const stopBtn = document.getElementById('stop-btn');
             
             clearInterval(timerInt);
-            user.innerText = `玩家 ${act.user}`;
-            txt.innerText = act.value;
-            timer.innerText = "";
             el.style.display = "flex";
 
             if (act.type === "SELL") {
+                stopBtn.style.display = "block";
                 let count = 90;
                 timerInt = setInterval(() => {
-                    timer.innerText = count;
+                    timer.innerText = count + "s";
                     count--;
-                    if(count < 0) {
-                        clearInterval(timerInt);
-                        el.style.display = "none";
-                        update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
-                    }
+                    if(count < 0) stopTimer();
                 }, 1000);
             } else {
-                setTimeout(() => {
+                stopBtn.style.display = "none";
+                timer.innerText = "DONE";
+                setTimeout(() => { 
                     el.style.display = "none";
                     update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
-                }, 3000);
+                }, 2500);
             }
         }
+
+        window.stopTimer = function() {
+            clearInterval(timerInt);
+            document.getElementById('notification').style.display = "none";
+            update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
+        };
     </script>
 </body>
 </html>
