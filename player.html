@@ -94,6 +94,52 @@
             "名牌效應": "推銷「金級」產品時，時間額外加 30 秒。"
         };
 
+        // 1. 更新產品數據 (加上建議零售價 s)
+const PRODS = [
+    { id:"i1", n:"波士機(金)", p:5000, c:2000, s:8500 }, { id:"i2", n:"全能王(銀)", p:3000, c:1200, s:5500 }, 
+    { id:"i3", n:"神機(銅)", p:1000, c:400, s:2000 }, { id:"i4", n:"文書機(普)", p:500, c:200, s:1000 },
+    { id:"i5", n:"隔世大師(金)", p:5000, c:2000, s:9000 }, { id:"i6", n:"潮流環(銀)", p:3000, c:1200, s:5200 }, 
+    { id:"i7", n:"健康神(銅)", p:1000, c:400, s:2200 }, { id:"i8", n:"復古錶(普)", p:500, c:200, s:900 },
+    { id:"i9", n:"無敵衫(金)", p:5000, c:2000, s:8800 }, { id:"i10", n:"速乾神(銀)", p:3000, c:1200, s:4800 }, 
+    { id:"i11", n:"養生杯(銅)", p:1000, c:400, s:1800 }, { id:"i12", n:"棉花神(普)", p:500, c:200, s:800 }
+];
+
+// 2. HTML 增加「我的戰利品」區塊 (放在我的倉庫下面)
+/* <div class="section" style="border-left: 5px solid #a855f7">
+    <h5 style="margin:0">🏆 我的戰利品 (已成交紀錄)</h5>
+    <div id="my-trophies" style="font-size:0.8rem; color:#d8b4fe"></div>
+</div>
+*/
+
+// 3. 在 onValue 監聽器內更新「戰利品」與「市場顯示建議售價」
+onValue(ref(db, 'game_state'), (snap) => {
+    // ... 原有代碼 ...
+    const me = gs.players[pId];
+    
+    // 更新市場列表 (顯示建議零售價)
+    const mkt = document.getElementById('mkt-list'); mkt.innerHTML = "";
+    PRODS.forEach(p => {
+        const buyer = gs.inventory && gs.inventory[p.id];
+        let b = document.createElement('button');
+        b.className = "p-btn";
+        // 核心修正：如果有人買左，顯示賣家 ID 並且 disabled
+        if (buyer) {
+            b.innerHTML = `${p.n}<br><span style="color:#ef4444">已被 ${buyer} 購入</span>`;
+            b.disabled = true;
+            b.style.opacity = "0.5";
+        } else {
+            b.innerHTML = `${p.n}<br>入貨:$${p.p}<br><span style="color:#22c55e">零售:$${p.s}</span>`;
+            b.disabled = (me.inv && me.inv.length >= 3);
+            b.onclick = () => window.buyItem(p);
+        }
+        mkt.appendChild(b);
+    });
+
+    // 更新戰利品 (這部分可以從 last_action 或者你可以考慮在 Firebase 加一個 trophies 欄位)
+    // 簡單做法：顯示本輪已獲得的佣金項目
+    document.getElementById('my-trophies').innerText = `本輪已賺佣金: $${me.totalComm || 0}`;
+});
+
         let gs = {};
 
         // 核心監聽器
@@ -183,6 +229,27 @@
             await update(ref(db), updates);
         };
 
+        // 修改 useCard 函數內的 alert
+window.useCard = async () => {
+    const me = gs.players[pId];
+    if (!me.hand || me.hand === "無") return alert("手上有冇卡！");
+    const cardName = me.hand;
+    const desc = EVENTS_DATA[cardName]; // 這裡會抓到作用說明
+
+    if (!confirm(`確定發動【${cardName}】？\n作用：${desc}`)) return;
+
+    const updates = {};
+    updates[`game_state/players/${pId}/hand`] = "無";
+    updates[`game_state/players/${pId}/lastEvent`] = cardName;
+    updates[`game_state/last_action`] = {
+        user: pId, 
+        type: "SKILL", 
+        value: `🔥 ${pId} 發動：${cardName}`, 
+        detail: desc // 將說明傳給 MC 睇
+    };
+    await update(ref(db), updates);
+};
+        
         window.updateTargetInv = () => {
             const tId = document.getElementById('target-p').value;
             const sel = document.getElementById('target-item'); sel.innerHTML = '<option value="">2. 揀產品</option>';
