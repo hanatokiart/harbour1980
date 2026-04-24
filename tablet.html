@@ -2,47 +2,47 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - 中央管理系統</title>
+    <title>港灣 1980 - MC 中央管理系統</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
-        .container { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        .container { display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
         .sidebar { background: #020617; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
         .player-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
         .player-card h4 { margin: 0 0 5px 0; color: var(--accent); border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .rule-box { font-size: 0.85em; color: #94a3b8; background: #1e293b; padding: 10px; border-radius: 8px; margin-top: 20px; border-left: 4px solid var(--accent); }
+        .inv-tag { display: inline-block; background: #334155; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; margin: 2px; border: 1px solid var(--accent); }
         .main-stage { padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
                         display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        #notification h1 { font-size: 4rem; color: var(--accent); margin: 0; }
         #timer { font-size: 8rem; font-weight: bold; color: white; margin: 20px 0; }
-        .btn-stop { background: var(--danger); color: white; border: none; padding: 20px 40px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; }
-        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; opacity: 0.6; }
+        .btn-stop { background: var(--danger); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.2rem; cursor: pointer; }
+        .quarter-info { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; color: var(--accent); font-weight: bold; }
+        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; opacity: 0.5; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2 style="text-align: center;">📊 遊戲數據</h2>
+            <h2 style="text-align: center;">📊 季度即時得分</h2>
             <div id="player-list"></div>
-            <div class="rule-box">
-                <b>🏆 得勝資料</b><br>
-                1. 累積佣金最高者勝。<br>
-                2. 輪次結束時，未賣出貨品將扣除全額按金。<br>
-                3. 使用事件卡可扭轉劣勢。
+            <div style="margin-top:20px; padding:10px; background:rgba(56,189,248,0.1); border-radius:8px; font-size:0.85em;">
+                <b>📢 MC 指引：</b><br>
+                - 滿 3 回合會進行季度小結。<br>
+                - 隨時可見玩家剩餘現金及佣金。
             </div>
         </div>
         <div class="main-stage">
-            <h2 style="font-size: 2.5rem; opacity: 0.2;">請玩家在手機入貨...</h2>
+            <div class="quarter-info" id="q-display">第 1 季度 - 第 1 回合</div>
+            <h2 style="font-size: 2rem; opacity: 0.2;">等待玩家入貨或推銷...</h2>
             <button class="btn-reset" onclick="initGame()">⚠️ 重置遊戲</button>
         </div>
     </div>
 
     <div id="notification">
-        <h2 id="note-user" style="color: white; font-size: 2rem;"></h2>
-        <h1 id="note-text"></h1>
+        <h2 id="note-user" style="color: white; font-size: 1.5rem;"></h2>
+        <h1 id="note-text" style="color: var(--accent);"></h1>
         <div id="timer"></div>
-        <button class="btn-stop" id="stop-btn" onclick="stopTimer()" style="display:none">⏹️ 提前結束 (成交/失敗)</button>
+        <button class="btn-stop" onclick="stopTimer()">⏹️ 結束行動 / 成交</button>
     </div>
 
     <script type="module">
@@ -56,36 +56,36 @@
             projectId: "harbour1980-bac14",
             appId: "1:1010384901946:web:302f99b7565aa9063aa203"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
         window.initGame = function() {
-            if(!confirm("確定要重置嗎？")) return;
+            if(!confirm("重置將清空所有分數，確定？")) return;
             const roles = ["銷售鬼才", "砍價大師", "運氣王", "物流大佬"].sort(() => Math.random() - 0.5);
             set(ref(db, 'game_state'), {
-                round: 1, inventory: {}, event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨","連鎖效應","黑市交易","物流延誤","名牌效應"].sort(()=>Math.random()-0.5),
+                round: 1, quarter: 1, inventory: {}, 
+                event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨","連鎖效應","黑市交易","物流延誤","名牌效應"].sort(()=>Math.random()-0.5),
                 players: {
-                    P1: { cash: 10000, role: roles[0], inv: [], hand: [], totalComm: 0 },
-                    P2: { cash: 10000, role: roles[1], inv: [], hand: [], totalComm: 0 },
-                    P3: { cash: 10000, role: roles[2], inv: [], hand: [], totalComm: 0 },
-                    P4: { cash: 10000, role: roles[3], inv: [], hand: [], totalComm: 0 }
+                    P1: { cash: 10000, role: roles[0], inv: [], hand: [], totalComm: 0, drawCount: 0 },
+                    P2: { cash: 10000, role: roles[1], inv: [], hand: [], totalComm: 0, drawCount: 0 },
+                    P3: { cash: 10000, role: roles[2], inv: [], hand: [], totalComm: 0, drawCount: 0 },
+                    P4: { cash: 10000, role: roles[3], inv: [], hand: [], totalComm: 0, drawCount: 0 }
                 },
                 last_action: { type: "IDLE", user: "SYS", value: "READY" }
             });
         };
 
         onValue(ref(db, 'game_state'), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
+            const data = snapshot.val(); if (!data) return;
+            document.getElementById('q-display').innerText = `第 ${data.quarter} 季度 - 第 ${data.round} 回合`;
             const listEl = document.getElementById('player-list');
             listEl.innerHTML = "";
             Object.keys(data.players).forEach(id => {
                 const p = data.players[id];
                 listEl.innerHTML += `<div class="player-card">
                     <h4>${id} - ${p.role}</h4>
-                    <div>💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm || 0}</div>
-                    <div style="margin-top:5px;">${p.inv ? p.inv.map(i => `<span class="inv-tag">${i.n}</span>`).join('') : ''}</div>
+                    <div style="font-size:0.9em">💰 現金: $${p.cash} | 📈 佣金: <b style="color:#9ece6a">$${p.totalComm}</b></div>
+                    <div style="margin-top:5px;">${p.inv ? p.inv.map(i => `<span class="inv-tag">${i.n}</span>`).join('') : '<small>未入貨</small>'}</div>
                 </div>`;
             });
             if (data.last_action.type !== "IDLE" && data.last_action.user !== "SYS") showNotice(data.last_action);
@@ -97,13 +97,9 @@
             document.getElementById('note-user').innerText = `玩家 ${act.user}`;
             document.getElementById('note-text').innerText = act.value;
             const timer = document.getElementById('timer');
-            const stopBtn = document.getElementById('stop-btn');
-            
             clearInterval(timerInt);
             el.style.display = "flex";
-
             if (act.type === "SELL") {
-                stopBtn.style.display = "block";
                 let count = 90;
                 timerInt = setInterval(() => {
                     timer.innerText = count + "s";
@@ -111,12 +107,8 @@
                     if(count < 0) stopTimer();
                 }, 1000);
             } else {
-                stopBtn.style.display = "none";
-                timer.innerText = "DONE";
-                setTimeout(() => { 
-                    el.style.display = "none";
-                    update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
-                }, 2500);
+                timer.innerText = "完成";
+                setTimeout(() => { if(el.style.display === "flex") stopTimer(); }, 2000);
             }
         }
 
