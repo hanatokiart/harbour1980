@@ -8,40 +8,42 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
         .sidebar { background: #0f172a; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
         .p-card { background: var(--card); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 5px solid var(--accent); }
-        .p-card h4 { margin: 0; color: var(--accent); display: flex; justify-content: space-between; }
-        .main { padding: 40px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        #full-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .btn-group { margin-top: 30px; display: flex; gap: 20px; }
-        button { cursor: pointer; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; }
-        .btn-confirm { background: var(--win); color: white; font-size: 1.5rem; }
-        .btn-cancel { background: var(--lose); color: white; }
+        .p-card.inactive { opacity: 0.3; border-left-color: #475569; }
+        .main { padding: 40px; position: relative; display: flex; flex-direction: column; align-items: center; }
+        #full-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
+        .summary-table { width: 80%; border-collapse: collapse; margin-top: 20px; }
+        .summary-table th, .summary-table td { border: 1px solid #334155; padding: 12px; text-align: center; }
+        button { cursor: pointer; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; }
+        .btn-win { background: var(--win); color: white; }
+        .btn-next { background: var(--accent); color: #020617; margin-top: 20px; font-size: 1.2rem; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2 style="text-align:center">📈 賽季實時數據</h2>
+        <h2 style="text-align:center">📊 季度監控</h2>
         <div id="player-display"></div>
-        <div style="margin-top:20px; font-size:0.8em; color:#94a3b8; background:#1e293b; padding:10px; border-radius:8px">
-            <b>🏆 季末成就點 (AP) 規則：</b><br>
-            現金最多: +3 AP | 賣貨最多: +3 AP<br>
-            FAB 推銷獎: +2 AP | 推銷最差: -1 AP
-        </div>
+        <button onclick="initGame()" style="width:100%; background:#475569; color:white; margin-top:10px">🔄 初始化/重置 (4人)</button>
     </div>
     <div class="main">
-        <div id="game-info" style="font-size:1.5rem; margin-bottom:20px">第 1 季度 | 第 1 回合</div>
-        <h1 style="opacity:0.2; font-size:4rem">等待交易...</h1>
-        <button onclick="initGame()" style="position:absolute; bottom:20px; right:20px; opacity:0.3">重置系統</button>
+        <div id="game-info" style="font-size:1.5rem; color:var(--accent)">載入中...</div>
+        <div id="summary-area" style="display:none; width:100%">
+            <h1 style="color:var(--win)">季度小結總計</h1>
+            <table class="summary-table" id="summary-body"></table>
+            <button class="btn-next" onclick="nextRound()">進入下一回合/季度</button>
+        </div>
+        <div id="idle-msg" style="margin-top:100px; opacity:0.2"><h1>等待玩家行動...</h1></div>
+        <button id="end-round-btn" class="btn-next" onclick="showSummary()" style="position:fixed; bottom:20px; right:20px">🏁 完結本回合</button>
     </div>
 
     <div id="full-screen">
         <h2 id="act-user" style="color:var(--accent)"></h2>
         <h1 id="act-msg" style="font-size:3rem"></h1>
         <div id="act-detail" style="font-size:1.5rem; margin:20px 0"></div>
-        <div class="btn-group" id="deal-btns" style="display:none">
-            <button class="btn-confirm" onclick="deal(true)">✅ 成交 (更新數據)</button>
-            <button class="btn-cancel" onclick="deal(false)">❌ 拒絕/取消</button>
+        <div id="deal-btns" style="display:none; gap:20px">
+            <button class="btn-win" style="font-size:2rem" onclick="deal(true)">✅ 成交</button>
+            <button style="background:var(--lose); color:white" onclick="closeScreen()">❌ 取消</button>
         </div>
-        <button id="close-btn" class="btn-cancel" onclick="closeScreen()" style="margin-top:20px">關閉視窗</button>
+        <button onclick="closeScreen()" style="margin-top:30px; background:#475569; color:white">關閉</button>
     </div>
 
     <script type="module">
@@ -53,43 +55,48 @@
         const db = getDatabase(app);
 
         window.initGame = () => {
-            if(!confirm("重置數據？")) return;
             const roles = [
-                {n:"港產女王", s:"金級佣金+$2000"}, {n:"品質大師", s:"免疫推銷扣分"},
+                {n:"港產女王", s:"賣金級加$2000"}, {n:"品質大師", s:"免疫推銷扣分"},
                 {n:"格價大叔", s:"入貨成本-$500"}, {n:"潮流先鋒", s:"無視換季扣分"}
             ].sort(()=>Math.random()-0.5);
             set(ref(db, 'game_state'), {
                 round: 1, quarter: 1, inventory: {},
+                event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨"].sort(()=>Math.random()-0.5),
                 players: {
-                    P1: { cash: 10000, role: roles[0], inv: [], totalComm: 0, ap: 0 },
-                    P2: { cash: 10000, role: roles[1], inv: [], totalComm: 0, ap: 0 },
-                    P3: { cash: 10000, role: roles[2], inv: [], totalComm: 0, ap: 0 },
-                    P4: { cash: 10000, role: roles[3], inv: [], totalComm: 0, ap: 0 }
+                    P1: { active: true, cash: 10000, role: roles[0], totalComm: 0, ap: 0, drawCount: 0 },
+                    P2: { active: true, cash: 10000, role: roles[1], totalComm: 0, ap: 0, drawCount: 0 },
+                    P3: { active: true, cash: 10000, role: roles[2], totalComm: 0, ap: 0, drawCount: 0 },
+                    P4: { active: true, cash: 10000, role: roles[3], totalComm: 0, ap: 0, drawCount: 0 }
                 },
-                last_action: { type: "IDLE", user: "SYS", value: "READY" }
+                last_action: { type: "IDLE", user: "SYS" }
             });
         };
 
         onValue(ref(db, 'game_state'), (snap) => {
             const d = snap.val(); if(!d) return;
-            document.getElementById('game-info').innerText = `第 ${d.quarter} 季度 | 第 ${d.round} 回合`;
+            document.getElementById('game-info').innerText = `第 ${d.quarter} 季度 - 第 ${d.round} 回合`;
             const list = document.getElementById('player-display');
             list.innerHTML = "";
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                list.innerHTML += `<div class="p-card">
-                    <h4>${id} - ${p.role.n} <span>AP: ${p.ap}</span></h4>
-                    <div style="font-size:0.9em; margin-top:5px">💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm}</div>
-                    <div style="color:#94a3b8; font-size:0.75em">技能: ${p.role.s}</div>
+                list.innerHTML += `<div class="p-card ${p.active?'':'inactive'}">
+                    <button onclick="togglePlayer('${id}')" style="float:right; font-size:0.6em">${p.active?'剔除':'加入'}</button>
+                    <h4>${id} - ${p.role.n}</h4>
+                    <div style="font-size:0.85em">💰 現金: $${p.cash} | 📈 AP: ${p.ap}</div>
                 </div>`;
             });
             if(d.last_action.type !== "IDLE") showAct(d.last_action);
         });
 
+        window.togglePlayer = async (id) => {
+            const snap = await get(ref(db, `game_state/players/${id}/active`));
+            update(ref(db, `game_state/players/${id}`), { active: !snap.val() });
+        };
+
         function showAct(act) {
             const fs = document.getElementById('full-screen');
             document.getElementById('act-user').innerText = `玩家 ${act.user}`;
-            document.getElementById('act-msg').innerText = act.type === "SELL" ? "📢 正在推銷產品！" : act.value;
+            document.getElementById('act-msg').innerText = act.value;
             document.getElementById('deal-btns').style.display = act.type === "OFFER" ? "flex" : "none";
             fs.style.display = "flex";
         }
@@ -102,15 +109,39 @@
                 const buyer = d.players[act.user];
                 const seller = d.players[act.seller];
                 const price = parseInt(act.price);
-                const comm = parseInt(act.comm);
-
+                const comm = parseInt(act.comm); // 產品原本佣金
+                
                 const up = {};
                 up[`game_state/players/${act.user}/cash`] = buyer.cash - price;
                 up[`game_state/players/${act.seller}/totalComm`] = seller.totalComm + comm;
-                up[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "交易達成！" };
+                up[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "成交完成" };
                 update(ref(db), up);
             }
             closeScreen();
+        };
+
+        window.showSummary = async () => {
+            const snap = await get(ref(db, 'game_state'));
+            const d = snap.val();
+            document.getElementById('summary-area').style.display = "block";
+            document.getElementById('idle-msg').style.display = "none";
+            let html = `<tr><th>玩家</th><th>現金</th><th>本季佣金</th><th>成就點 (AP)</th></tr>`;
+            Object.keys(d.players).forEach(id => {
+                const p = d.players[id];
+                if(p.active) html += `<tr><td>${id}</td><td>$${p.cash}</td><td>$${p.totalComm}</td><td>${p.ap}</td></tr>`;
+            });
+            document.getElementById('summary-body').innerHTML = html;
+        };
+
+        window.nextRound = async () => {
+            const snap = await get(ref(db, 'game_state'));
+            const d = snap.val();
+            let newRound = d.round + 1;
+            let newQ = d.quarter;
+            if(newRound > 3) { newRound = 1; newQ++; }
+            update(ref(db, 'game_state'), { round: newRound, quarter: newQ, inventory: {}, last_action: {type:"IDLE", user:"SYS"} });
+            document.getElementById('summary-area').style.display = "none";
+            document.getElementById('idle-msg').style.display = "block";
         };
 
         window.closeScreen = () => {
