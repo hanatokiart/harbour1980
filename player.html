@@ -89,15 +89,19 @@
         });
 
         // 傳送動作到 Firebase
-        window.commitAction = function(type, val) {
-            update(ref(db, 'game_state/last_action'), {
-                user: pId,
-                type: type,
-                value: val,
-                time: Date.now()
-            });
-            console.log("Action Sent:", type);
-        };
+window.commitAction = function(type, val) {
+    // 確保路徑同 tablet.html 監聽的一致
+    update(ref(db, 'game_state/last_action'), {
+        user: pId,
+        type: type,
+        value: val,
+        time: Date.now()
+    }).then(() => {
+        alert("傳送成功！"); // 加個 Alert 測試有無行到呢一步
+    }).catch((error) => {
+        alert("出事喇: " + error.message); // 如果失敗會彈原因
+    });
+};
     </script>
 </body>
 </html>
