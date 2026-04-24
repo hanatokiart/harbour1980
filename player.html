@@ -113,11 +113,28 @@
             document.getElementById('skill-text').innerText = me.role.s;
             document.getElementById('cash-display').innerText = `$${me.cash}`;
 
-            // 2. 倉庫更新
-            const invArea = document.getElementById('my-inv'); invArea.innerHTML = "";
-            if(me.inv && me.inv.length > 0) {
-                me.inv.forEach(i => invArea.innerHTML += `<div style="padding:5px; border-bottom:1px solid #334155">${i.n} (佣金 $${i.c})</div>`);
-            } else { invArea.innerHTML = "<small style='color:red'>倉庫空！結算將扣 $500 不購買稅</small>"; }
+// 2. 倉庫更新 (加入建議零售價顯示)
+const invArea = document.getElementById('my-inv'); 
+invArea.innerHTML = "";
+
+if(me.inv && me.inv.length > 0) {
+    me.inv.forEach(i => {
+        // 從 PRODS 陣列搵返對應貨品嘅零售價 (s)
+        const productInfo = PRODS.find(p => p.id === i.id);
+        const retailPrice = productInfo ? productInfo.s : "未知";
+        
+        invArea.innerHTML += `
+            <div style="padding:8px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                <span>${i.n}</span>
+                <div style="text-align:right">
+                    <small style="color:#94a3b8">佣金: $${i.c}</small><br>
+                    <b style="color:var(--win); font-size:0.8rem">零售價: $${retailPrice}</b>
+                </div>
+            </div>`;
+    });
+} else { 
+    invArea.innerHTML = "<div style='padding:10px; text-align:center;'><small style='color:#ef4444'>⚠️ 倉庫空！結算將扣 $500 不購買稅</small></div>"; 
+}
 
             // 3. 戰利品 (本輪佣金)
             document.getElementById('my-trophies').innerText = `本輪已賺佣金: $${me.totalComm || 0}`;
