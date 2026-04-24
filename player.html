@@ -2,69 +2,59 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>玩家端 - 港灣 1980 (V2)</title>
+    <title>玩家端 - 港灣 1980 (V2.1)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --trophy: #f59e0b; --home: #ec4899; }
-        body { font-family: sans-serif; background: var(--bg); color: white; padding: 10px; margin: 0; padding-bottom: 50px; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --trophy: #a855f7; --gold: #e0af68; }
+        body { font-family: sans-serif; background: var(--bg); color: white; padding: 10px; margin: 0; }
         .section { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
         .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .p-btn { background: #334155; color: white; padding: 8px; font-size: 0.65rem; border: 1px solid #475569; border-radius: 6px; line-height: 1.4; }
+        .p-btn { background: #334155; color: white; padding: 8px; font-size: 0.6rem; border: 1px solid #475569; border-radius: 6px; line-height: 1.4; position: relative; }
+        .tag { position: absolute; top: 2px; left: 2px; font-size: 0.5rem; padding: 1px 3px; border-radius: 3px; background: rgba(0,0,0,0.5); }
         #deal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
         .hand-box { margin-top:10px; padding:10px; background:#0f172a; border-radius:8px; border: 1px dashed var(--accent); }
-        .tag { font-size: 0.65rem; padding: 2px 5px; border-radius: 4px; margin-right: 5px; }
-        .tag-elec { background: #1d4ed8; }
-        .tag-life { background: #059669; }
-        .tag-luxury { background: #b45309; }
     </style>
 </head>
 <body>
     <div class="section">
         <div style="display:flex; justify-content:space-between; align-items: center;">
             <div>
-                <b id="role-display" style="font-size: 1.1rem;">-</b><br>
+                <b id="role-display">-</b><br>
                 <small id="skill-text" style="color:var(--accent)"></small>
             </div>
-            <b id="cash-display" style="color:var(--win); font-size:1.4rem">$0</b>
+            <b id="cash-display" style="color:var(--win); font-size:1.2rem">$0</b>
         </div>
     </div>
 
     <div id="deal-modal">
         <h2 style="color:var(--accent)">💰 收到交易出價！</h2>
-        <div id="offer-info" style="margin:20px; font-size:1.2rem; text-align:center"></div>
+        <div id="offer-info" style="margin:20px; font-size:1.2rem; color:white; text-align:center"></div>
         <button class="btn" style="background:var(--win); color:white" onclick="replyOffer(true)">✅ 接受成交</button>
         <button class="btn" style="background:#ef4444; color:white; margin-top:15px" onclick="replyOffer(false)">❌ 拒絕</button>
     </div>
 
     <div class="section" style="border-left: 5px solid var(--win)">
-        <h5 style="margin:0">🎒 倉庫 (上限 3 件)</h5>
+        <h5 style="margin:0">🎒 倉庫 (已扣按金)</h5>
         <div id="my-inv"></div>
     </div>
 
-    <div class="section" style="border-left: 5px solid var(--home)">
-        <h5 style="margin:0; color:var(--home)">🏠 我的家居 (收藏品)</h5>
-        <div id="my-home" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;"></div>
-    </div>
-
     <div class="section" style="border-left: 5px solid var(--trophy)">
-        <div style="display:flex; justify-content:space-between">
-            <h5 style="margin:0; color:var(--trophy)">📈 本輪累積佣金</h5>
-            <b id="my-comm" style="color:var(--trophy)">$0</b>
-        </div>
+        <h5 style="margin:0; color:var(--trophy)">🏆 本輪累積佣金 (LP 來源)</h5>
+        <div id="my-trophies" style="font-size:1rem; margin-top:5px; font-weight:bold; color:#d8b4fe">$0</div>
     </div>
 
     <div class="section">
-        <h5 style="margin:0 0 8px">📦 80 年代市場 (入貨)</h5>
+        <h5 style="margin:0 0 8px">📦 市場入貨 (上限 3 件)</h5>
         <div id="mkt-list" class="grid"></div>
     </div>
 
-    <div class="section" style="border: 2px solid #e0af68">
-        <h5 style="margin:0; color:#e0af68">🤝 點對點交易 (出貨)</h5>
+    <div class="section" style="border: 2px solid var(--gold)">
+        <h5 style="margin:0; color:var(--gold)">🤝 點對點交易 (出貨)</h5>
         <select id="target-p" onchange="updateTargetInv()" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white"><option value="">1. 揀賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option></select>
         <select id="target-item" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white"><option value="">2. 揀產品</option></select>
         <input type="number" id="offer-price" placeholder="3. 出價 $" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white; box-sizing:border-box">
-        <button class="btn" style="background:#e0af68" onclick="sendOffer()">📤 送出交易請求</button>
+        <button class="btn" style="background:var(--gold)" onclick="sendOffer()">📤 送出交易請求</button>
     </div>
 
     <script type="module">
@@ -76,13 +66,27 @@
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
 
+        // 16件 80年代復古產品
         const PRODS = [
+            // 電子類 (對應 港產女王)
             { id:"i1", n:"摩圖羅拉 3380", type:"電子", p:8000, c:3000, s:15000 },
-            { id:"i2", n:"老利時 水鬼", type:"奢侈", p:12000, c:4500, s:22000 },
-            { id:"i3", n:"新力 走路人", type:"電子", p:1500, c:600, s:2800 },
-            { id:"i4", n:"金星 電視機", type:"生活", p:3000, c:1200, s:5500 },
-            { id:"i5", n:"任天堂 紅白機", type:"生活", p:800, c:400, s:1600 },
-            { id:"i6", n:"駱駝牌 暖水壺", type:"生活", p:300, c:150, s:650 }
+            { id:"i2", n:"新力 走路人", type:"電子", p:1500, c:600, s:2800 },
+            { id:"i3", n:"愛華 卡式機", type:"電子", p:1200, c:500, s:2200 },
+            { id:"i4", n:"聲寶 錄影機", type:"電子", p:4500, c:1800, s:8000 },
+            { id:"i5", n:"精工 電子鐘", type:"電子", p:500, c:200, s:1000 },
+            { id:"i6", n:"卡西歐 計算機", type:"電子", p:300, c:120, s:600 },
+            // 奢侈類
+            { id:"i7", n:"老利時 水鬼", type:"奢侈", p:12000, c:4500, s:22000 },
+            { id:"i8", n:"柏得菲臘 懷錶", type:"奢侈", p:15000, c:6000, s:28000 },
+            { id:"i9", n:"都彭 打火機", type:"奢侈", p:2500, c:1000, s:4500 },
+            { id:"i10", n:"軒尼斯 XO", type:"奢侈", p:1800, c:800, s:3500 },
+            // 生活類 (對應 生活先鋒)
+            { id:"i11", n:"金星 電視機", type:"生活", p:3500, c:1500, s:6500 },
+            { id:"i12", n:"任天堂 紅白機", type:"生活", p:800, c:400, s:1600 },
+            { id:"i13", n:"駱駝牌 暖水壺", type:"生活", p:250, c:120, s:550 },
+            { id:"i14", n:"樂信 抽氣扇", type:"生活", p:600, c:250, s:1200 },
+            { id:"i15", n:"大金 冷氣機", type:"生活", p:5000, c:2000, s:9500 },
+            { id:"i16", n:"虎牌 電飯煲", type:"生活", p:1000, c:450, s:2000 }
         ];
 
         let gs = {};
@@ -94,43 +98,35 @@
             document.getElementById('role-display').innerText = `${pId} - ${me.role.n}`;
             document.getElementById('skill-text').innerText = me.role.s;
             document.getElementById('cash-display').innerText = `$${me.cash}`;
-            document.getElementById('my-comm').innerText = `$${me.currentComm || 0}`;
+            document.getElementById('my-trophies').innerText = `$${me.totalComm || 0}`;
 
             // 倉庫更新
             const invArea = document.getElementById('my-inv'); invArea.innerHTML = "";
             if(me.inv && me.inv.length > 0) {
                 me.inv.forEach(i => {
+                    const info = PRODS.find(p => p.id === i.id);
                     invArea.innerHTML += `
-                        <div style="padding:8px; border-bottom:1px solid #334155; display:flex; justify-content:space-between;">
-                            <span><span class="tag ${i.type==='電子'?'tag-elec':(i.type==='生活'?'tag-life':'tag-luxury')}">${i.type}</span>${i.n}</span>
+                        <div style="padding:8px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                            <span><small style="color:#94a3b8">[${i.type}]</small> ${i.n}</span>
                             <div style="text-align:right">
-                                <small style="color:var(--accent)">基礎佣金: $${i.c}</small><br>
-                                <b style="color:var(--win)">建議零售: $${i.s}</b>
+                                <small style="color:#94a3b8">佣金: $${i.c}</small><br>
+                                <b style="color:var(--win); font-size:0.8rem">零售: $${info.s}</b>
                             </div>
                         </div>`;
                 });
-            } else {
-                invArea.innerHTML = "<div style='padding:10px; text-align:center;'><small style='color:#ef4444'>⚠️ 倉庫空空！連續 3 輪將會被炒魷 (底薪 $0)</small></div>";
-            }
-
-            // 家居收藏更新
-            const homeArea = document.getElementById('my-home'); homeArea.innerHTML = "";
-            if(me.home) {
-                me.home.forEach(i => {
-                    homeArea.innerHTML += `<div style="background:#475569; padding:4px 8px; border-radius:4px; font-size:0.7rem;">🖼️ ${i.n}</div>`;
-                });
-            }
+            } else { invArea.innerHTML = "<div style='padding:10px; text-align:center;'><small style='color:#ef4444'>⚠️ 倉庫空！連續三輪不成交將取消底薪</small></div>"; }
 
             // 市場更新
             const mkt = document.getElementById('mkt-list'); mkt.innerHTML = "";
             PRODS.forEach(p => {
                 const buyer = gs.inventory && gs.inventory[p.id];
                 let b = document.createElement('button'); b.className = "p-btn";
+                let typeColor = p.type === '電子' ? '#38bdf8' : (p.type === '生活' ? '#22c55e' : '#e0af68');
                 if (buyer) {
                     b.innerHTML = `${p.n}<br><span style="color:#ef4444">已被 ${buyer} 購入</span>`;
-                    b.disabled = true; b.style.opacity = "0.5";
+                    b.disabled = true; b.style.opacity = "0.4";
                 } else {
-                    b.innerHTML = `${p.n}<br>入貨:$${p.p}<br><span style="color:var(--win)">零售:$${p.s}</span>`;
+                    b.innerHTML = `<span class="tag" style="color:${typeColor}">${p.type}</span>${p.n}<br>成本:$${p.p}<br><span style="color:var(--win)">零售:$${p.s}</span>`;
                     b.disabled = (me.inv && me.inv.length >= 3);
                     b.onclick = () => window.buyItem(p);
                 }
@@ -148,7 +144,7 @@
         window.buyItem = (p) => {
             const me = gs.players[pId];
             let cost = (me.role.n === "格價大叔") ? p.p - 500 : p.p;
-            if(me.cash < cost) return alert("資金不足！");
+            if(me.cash < cost) return alert("錢唔夠");
             const up = {};
             up[`game_state/inventory/${p.id}`] = pId;
             up[`game_state/players/${pId}/inv`] = [...(me.inv || []), p];
@@ -166,7 +162,7 @@
             const seller = document.getElementById('target-p').value;
             const pid = document.getElementById('target-item').value;
             const price = document.getElementById('offer-price').value;
-            if(!seller || !pid || !price) return alert("請填寫出價資訊！");
+            if(!seller || !pid || !price) return alert("未填完！");
             update(ref(db, 'game_state/last_action'), { 
                 user: pId, seller: seller, prodId: pid, 
                 prodName: document.getElementById('target-item').selectedOptions[0].text, 
@@ -177,30 +173,24 @@
         window.replyOffer = (ok) => {
             const act = gs.last_action;
             if(ok) {
-                const me = gs.players[pId];
-                const item = me.inv.find(i => i.id === act.prodId);
+                const seller = gs.players[pId];
+                const item = seller.inv.find(i => i.id === act.prodId);
                 
-                // 計算佣金加成
-                let comm = item.c;
-                if(me.role.n === "港產女王" && item.type === "電子") comm += 1000;
-                if(me.role.n === "生活先鋒" && item.type === "生活") comm += 1000;
+                let comm = item.c; 
+                // FAB 角色加成
+                if(seller.role.n === "港產女王" && item.type === "電子") comm += 1000;
+                if(seller.role.n === "生活先鋒" && item.type === "生活") comm += 1000;
 
-                const totalGet = parseInt(act.price) + comm;
+                const totalGetBack = parseInt(act.price) + comm;
                 const up = {};
-                // 買家扣錢
                 up[`game_state/players/${act.user}/cash`] = gs.players[act.user].cash - parseInt(act.price);
-                // 賣家加錢 (成交價 + 佣金)
-                up[`game_state/players/${pId}/cash`] = me.cash + totalGet;
-                // 累積佣金
-                up[`game_state/players/${pId}/totalComm`] = (me.totalComm || 0) + comm;
-                up[`game_state/players/${pId}/currentComm`] = (me.currentComm || 0) + comm;
-                // 移除貨物
-                up[`game_state/players/${pId}/inv`] = me.inv.filter(i => i.id !== act.prodId);
-                
-                up[`game_state/last_action`] = { user: pId, type: "DONE", value: `🤝 成交！${act.prodName} 以 $${act.price} 賣出，賺取佣金 $${comm}` };
+                up[`game_state/players/${pId}/cash`] = seller.cash + totalGetBack;
+                up[`game_state/players/${pId}/totalComm`] = (seller.totalComm || 0) + comm;
+                up[`game_state/players/${pId}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
+                up[`game_state/last_action`] = { type: "DONE", user: pId, value: `🤝 成交！賺取佣金 $${comm}` };
                 update(ref(db), up);
             } else {
-                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ ${pId} 拒絕了出價` });
+                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕出價` });
             }
         };
     </script>
