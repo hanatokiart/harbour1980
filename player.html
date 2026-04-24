@@ -5,47 +5,56 @@
     <title>玩家端 - 港灣 1980</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --green: #9ece6a; }
-        body { font-family: sans-serif; background: var(--bg); color: #c0caf5; padding: 12px; margin: 0; }
-        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #334155; }
-        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; margin-top: 5px; cursor: pointer; }
-        .info-txt { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; line-height: 1.3; }
-        select, input { width: 100%; padding: 10px; margin-top: 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 5px; box-sizing: border-box; }
-        .prod-btn { background: #334155; color: white; padding: 10px; border: 1px solid #475569; border-radius: 6px; text-align: left; font-size: 0.8rem; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --green: #22c55e; --red: #ef4444; }
+        body { font-family: sans-serif; background: var(--bg); color: #c0caf5; padding: 10px; margin: 0; }
+        .section { background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .p-btn { background: #334155; color: white; padding: 8px 4px; border: 1px solid #475569; border-radius: 6px; font-size: 0.65rem; text-align: center; }
+        .cat-tag { font-size: 0.7rem; color: var(--accent); margin: 8px 0 4px; border-bottom: 1px solid #334155; }
+        button, select, input { width: 100%; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-main { padding: 12px; margin-top: 8px; }
+        #deal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 20px; text-align: center; }
     </style>
 </head>
 <body>
-    <h3 id="pId" style="text-align:center; color:var(--accent); margin:5px 0">載入中...</h3>
+    <h3 id="pId" style="text-align:center; color:var(--accent); margin:5px">載入中...</h3>
+
+    <div id="deal-overlay">
+        <h2 style="color:var(--accent)">🤝 有人想向你買貨！</h2>
+        <div id="offer-text" style="font-size:1.2rem; margin:20px 0; color:white"></div>
+        <button class="btn-main" style="background:var(--green); color:white; font-size:1.4rem" onclick="replyOffer(true)">✅ 接受成交</button>
+        <button class="btn-main" style="background:var(--red); color:white; margin-top:15px" onclick="replyOffer(false)">❌ 拒絕出價</button>
+    </div>
 
     <div class="section">
         <div style="display:flex; justify-content:space-between; align-items:center">
-            <b>身分: <span id="role-n">-</span></b>
-            <b id="cash" style="color:var(--green); font-size:1.2rem">$0</b>
+            <b id="role-n">-</b> <b id="cash" style="color:var(--green); font-size:1.2rem">$0</b>
         </div>
-        <div id="role-desc" class="info-txt"></div>
-        <button class="btn" style="background:var(--accent); color:#020617; font-size:0.8rem" onclick="useSkill()">⚡ 發動角色技能</button>
+        <button class="btn-main" style="background:var(--accent); color:#020617; font-size:0.75rem; padding:6px" onclick="sendAct('SKILL', '發動技能！', g.players[pId].role.s)">⚡ 使用角色技能</button>
     </div>
 
     <div class="section">
-        <h4 style="margin:0">🃏 事件卡 (每季限 2 張)</h4>
-        <button id="draw-btn" class="btn" style="background:var(--green); color:#020617" onclick="drawCard()">📦 抽取事件卡</button>
-        <div id="last-card" class="info-txt" style="color:var(--accent)"></div>
-    </div>
-
-    <div class="section">
-        <h4 style="margin:0">🛒 市場入貨 (金/銀/銅)</h4>
-        <div id="market" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px"></div>
+        <h5 style="margin:0 0 5px">📦 市場入貨 (12 件產品名單)</h5>
+        <div class="cat-tag">🍂 秋季 (手持)</div>
+        <div id="cat-1" class="grid"></div>
+        <div class="cat-tag">☀️ 夏/🌸 春 (穿戴)</div>
+        <div id="cat-2" class="grid"></div>
+        <div class="cat-tag">❄️ 冬季 (生活)</div>
+        <div id="cat-3" class="grid"></div>
     </div>
 
     <div class="section" style="border: 2px solid #e0af68">
-        <h4 style="margin:0; color:#e0af68">🤝 點對點交易 (買入)</h4>
-        <select id="seller" onchange="updateSellerInv()"><option value="">1. 選擇賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option></select>
-        <select id="prod-select"><option value="">2. 選擇貨品</option></select>
-        <input type="number" id="price" placeholder="3. 輸入成交價 $">
-        <button class="btn" style="background:#e0af68; color:#020617" onclick="sendOffer()">📤 送出出價</button>
+        <h5 style="margin:0; color:#e0af68">🤝 點對點交易出價</h5>
+        <select id="seller" onchange="updateSellerInv()" style="padding:8px; margin-top:5px; background:#0f172a; color:white"><option value="">1. 選擇賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option></select>
+        <select id="prod-select" style="padding:8px; margin-top:5px; background:#0f172a; color:white"><option value="">2. 選擇對方貨品</option></select>
+        <input type="number" id="price" placeholder="3. 輸入你願意支付的金額 $" style="padding:10px; margin-top:5px; background:#0f172a; color:white; box-sizing:border-box">
+        <button class="btn-main" style="background:#e0af68; color:#020617" onclick="sendOffer()">📤 送出出價請求</button>
     </div>
 
-    <button class="btn" style="background:#f7768e; color:white; height:50px; font-size:1.1rem" onclick="sendAct('SELL', '📢 我推銷緊！', '準備展示 FAB...')">📢 開始推銷</button>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <button class="btn-main" style="background:var(--green); color:#020617" onclick="drawCard()" id="draw-btn">📦 抽事件卡</button>
+        <button class="btn-main" style="background:#f7768e; color:white" onclick="sendAct('SELL', '📢 正在落力推銷中！')">📢 推銷貨品</button>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -56,78 +65,110 @@
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
 
-        let g = {};
-        const PRODS = [
-            { id: "i1", n: "波士機 (金)", p: 5000, c: 2000 }, { id: "i2", n: "全能王 (銀)", p: 3000, c: 1200 },
-            { id: "i3", n: "神機 (銅)", p: 1000, c: 400 }, { id: "i4", n: "隔世大師 (金)", p: 5000, c: 2000 },
-            { id: "i5", n: "潮流環 (銀)", p: 3000, c: 1200 }, { id: "i6", n: "健康神 (銅)", p: 1000, c: 400 }
+        // 完整 12 件產品清單
+        const ALL_PRODS = [
+            { id:"i1", n:"波士機 (金)", p:5000, c:2000, cat:1 }, { id:"i2", n:"全能王 (銀)", p:3000, c:1200, cat:1 },
+            { id:"i3", n:"神機 (銅)", p:1000, c:400, cat:1 }, { id:"i4", n:"文書機 (普)", p:500, c:200, cat:1 },
+            { id:"i5", n:"隔世大師 (金)", p:5000, c:2000, cat:2 }, { id:"i6", n:"潮流環 (銀)", p:3000, c:1200, cat:2 },
+            { id:"i7", n:"健康神 (銅)", p:1000, c:400, cat:2 }, { id:"i8", n:"復古錶 (普)", p:500, c:200, cat:2 },
+            { id:"i9", n:"無敵衫 (金)", p:5000, c:2000, cat:3 }, { id:"i10", n:"速乾神 (銀)", p:3000, c:1200, cat:3 },
+            { id:"i11", n:"養生杯 (銅)", p:1000, c:400, cat:3 }, { id:"i12", n:"棉花神 (普)", p:500, c:200, cat:3 }
         ];
 
+        window.g = {};
         onValue(ref(db, 'game_state'), (snap) => {
             g = snap.val(); if(!g) return;
             const me = g.players[pId];
             document.getElementById('pId').innerText = `玩家 ${pId}`;
             document.getElementById('role-n').innerText = me.role.n;
-            document.getElementById('role-desc').innerText = me.role.s;
             document.getElementById('cash').innerText = `$${me.cash}`;
-            document.getElementById('draw-btn').innerText = `📦 抽卡 (剩 ${2-me.drawCount})`;
+            document.getElementById('draw-btn').innerText = `📦 抽卡 (${2-me.drawCount})`;
             document.getElementById('draw-btn').disabled = me.drawCount >= 2;
 
-            const mkt = document.getElementById('market'); mkt.innerHTML = "";
-            PRODS.forEach(p => {
-                const taker = g.inventory && g.inventory[p.id];
-                let b = document.createElement('button'); b.className = "prod-btn";
-                b.disabled = !!taker || (me.inv && me.inv.length >= 3);
-                b.innerHTML = `<b>${p.n}</b><br>$${p.p} / $${p.c}`;
-                if(!b.disabled) b.onclick = () => buy(p);
-                mkt.appendChild(b);
+            // 賣家視角：檢測成交請求
+            const act = g.last_action;
+            if(act.type === "OFFER" && act.seller === pId) {
+                document.getElementById('offer-text').innerText = `買家 ${act.user} 想用 $${act.price} 買你的 ${act.prodName}`;
+                document.getElementById('deal-overlay').style.display = "flex";
+            } else {
+                document.getElementById('deal-overlay').style.display = "none";
+            }
+
+            // 更新市場庫存顯示
+            [1,2,3].forEach(c => {
+                const area = document.getElementById('cat-'+c); area.innerHTML = "";
+                ALL_PRODS.filter(p=>p.cat===c).forEach(p => {
+                    const taken = g.inventory && g.inventory[p.id];
+                    let b = document.createElement('button'); b.className = "p-btn";
+                    b.disabled = !!taken || (me.inv && me.inv.length >= 3);
+                    b.innerHTML = `<b>${p.n}</b><br>$${p.p}`;
+                    if(!b.disabled) b.onclick = () => buyMarket(p);
+                    area.appendChild(b);
+                });
             });
         });
 
+        window.buyMarket = async (p) => {
+            const me = g.players[pId];
+            let finalCost = (me.role.n === "格價大叔") ? p.p - 500 : p.p;
+            if(me.cash < finalCost) return alert("現金不足以支付按金");
+            const up = {};
+            up[`game_state/inventory/${p.id}`] = pId;
+            up[`game_state/players/${pId}/inv`] = [...(me.inv || []), p];
+            up[`game_state/players/${pId}/cash`] = me.cash - finalCost;
+            up[`game_state/last_action`] = { user: pId, type: "BUY", value: `成功入貨：${p.n}`, detail: `支付按金 $${finalCost}` };
+            update(ref(db), up);
+        };
+
         window.updateSellerInv = () => {
             const sId = document.getElementById('seller').value;
-            const sel = document.getElementById('prod-select');
-            sel.innerHTML = '<option value="">2. 選擇貨品</option>';
-            if(!sId || !g.players[sId].inv) return;
-            g.players[sId].inv.forEach(i => { sel.innerHTML += `<option value="${i.id}">${i.n} (佣 $${i.c})</option>`; });
+            const sel = document.getElementById('prod-select'); sel.innerHTML = '<option value="">2. 選擇對方貨品</option>';
+            if(sId && g.players[sId].inv) g.players[sId].inv.forEach(i => {
+                sel.innerHTML += `<option value="${i.id}">${i.n} (佣金 $${i.c})</option>`;
+            });
         };
-
-        window.buy = async (item) => {
-            const me = g.players[pId];
-            let cost = (me.role.n === "格價大叔") ? item.p - 500 : item.p;
-            if(me.cash < cost) return alert("錢唔夠");
-            const up = {};
-            up[`game_state/inventory/${item.id}`] = pId;
-            up[`game_state/players/${pId}/inv`] = [...(me.inv || []), item];
-            up[`game_state/players/${pId}/cash`] = me.cash - cost;
-            update(ref(db), up);
-        };
-
-        window.drawCard = () => {
-            const card = g.event_deck.shift();
-            const up = {};
-            up[`game_state/event_deck`] = g.event_deck;
-            up[`game_state/players/${pId}/drawCount`] = g.players[pId].drawCount + 1;
-            up[`game_state/last_action`] = { user: pId, type: "DRAW", value: `🃏 抽到：${card.n}`, detail: card.d };
-            update(ref(db), up);
-            document.getElementById('last-card').innerText = `最近抽到：${card.n} (${card.d})`;
-        };
-
-        window.useSkill = () => sendAct('SKILL', `⚡ 發動技能：${g.players[pId].role.n}`, g.players[pId].role.s);
 
         window.sendOffer = () => {
             const s = document.getElementById('seller').value;
             const pid = document.getElementById('prod-select').value;
             const p = document.getElementById('price').value;
-            if(!s || !pid || !p) return alert("資料未填好");
+            if(!s || !pid || !p) return alert("請填妥交易三部曲");
             const pName = document.getElementById('prod-select').selectedOptions[0].text;
             update(ref(db, 'game_state/last_action'), {
-                user: pId, seller: s, prodId: pid, price: p, type: "OFFER",
-                value: `想用 $${p} 買入玩家 ${s} 的 ${pName}`
+                user: pId, seller: s, prodId: pid, prodName: pName, price: p, type: "OFFER",
+                value: `向玩家 ${s} 出價 $${p} 買入 ${pName}`
             });
         };
 
-        window.sendAct = (t, v, d) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v, detail: d });
+        window.replyOffer = async (ok) => {
+            const act = g.last_action;
+            if(ok) {
+                const buyer = g.players[act.user];
+                const seller = g.players[pId];
+                const item = seller.inv.find(i => i.id === act.prodId);
+                let finalComm = item.c;
+                if(seller.role.n === "港產女王" && (item.n.includes("金"))) finalComm += 2000;
+
+                const up = {};
+                up[`game_state/players/${act.user}/cash`] = buyer.cash - parseInt(act.price);
+                up[`game_state/players/${pId}/totalComm`] = seller.totalComm + finalComm;
+                up[`game_state/players/${pId}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
+                up[`game_state/last_action`] = { type: "DONE", user: pId, value: `🤝 成交成功！`, detail: `與 ${act.user} 以 $${act.price} 結清，獲得佣金 $${finalComm}` };
+                update(ref(db), up);
+            } else {
+                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕了 ${act.user} 的出價` });
+            }
+        };
+
+        window.drawCard = () => {
+            const card = g.event_deck.shift();
+            update(ref(db, 'game_state/last_action'), { user: pId, type: "DRAW", value: `🃏 抽到：${card.n}`, detail: card.d });
+            update(ref(db, `game_state/players/${pId}/drawCount`), g.players[pId].drawCount + 1);
+            update(ref(db, 'game_state/event_deck'), g.event_deck);
+            alert(`${card.n}\n效果：${card.d}`);
+        };
+
+        window.sendAct = (t, v, d) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v, detail: d || '' });
     </script>
 </body>
 </html>
