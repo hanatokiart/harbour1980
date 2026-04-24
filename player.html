@@ -230,23 +230,53 @@ if(me.inv && me.inv.length > 0) {
             update(ref(db, 'game_state/last_action'), { user: pId, seller: seller, prodId: pid, prodName: document.getElementById('target-item').selectedOptions[0].text, price: price, type: "OFFER" });
         };
 
-        window.replyOffer = (ok) => {
-            const act = gs.last_action;
-            if(ok) {
-                const seller = gs.players[pId];
-                const item = seller.inv.find(i => i.id === act.prodId);
-                let comm = item.c; 
-                if(seller.role.n === "港產女王" && item.n.includes("金")) comm += 2000;
-                const up = {};
-                up[`game_state/players/${act.user}/cash`] = gs.players[act.user].cash - parseInt(act.price);
-                up[`game_state/players/${pId}/totalComm`] = (seller.totalComm || 0) + comm;
-                up[`game_state/players/${pId}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
-                up[`game_state/last_action`] = { type: "DONE", user: pId, value: `🤝 成交！獲取佣金 $${comm}` };
-                update(ref(db), up);
-            } else {
-                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕出價` });
-            }
+window.replyOffer = (ok) => {
+    const act = gs.last_action;
+    if(ok) {
+        const seller = gs.players[pId];
+        const item = seller.inv.find(i => i.id === act.prodId);
+        const productInfo = PRODS.find(p => p.id === item.id); // 搵返呢件貨嘅入貨價
+
+        // A. 計算基礎佣金
+        let comm = item.c; 
+        
+        // B. 角色技能加成 (港產女王)
+        if(seller.role.n === "港產女王" && item.n.includes("金")) {
+            comm += 2000;
+        }
+
+        // C. 事件卡加成 (廣告加持 - 手機類佣金雙倍)
+        if(seller.lastEvent === "廣告加持" && ["i1","i2","i3","i4"].includes(item.id)) {
+            comm *= 2;
+        }
+
+        // 核心修正：收回成本 (act.price) + 賺取佣金 (comm)
+        const totalGetBack = parseInt(act.price) + comm;
+
+        const up = {};
+        // 買家扣錢 (act.user 是發起交易的玩家)
+        up[`game_state/players/${act.user}/cash`] = gs.players[act.user].cash - parseInt(act.price);
+        
+        // 賣家（你）收錢：現有現金 + 成交價 + 佣金
+        up[`game_state/players/${pId}/cash`] = seller.cash + totalGetBack;
+        
+        // 記錄本輪賺咗幾多佣金 (純利)
+        up[`game_state/players/${pId}/totalComm`] = (seller.totalComm || 0) + comm;
+        
+        // 移除庫存
+        up[`game_state/players/${pId}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
+        
+        up[`game_state/last_action`] = { 
+            type: "DONE", 
+            user: pId, 
+            value: `🤝 成交！收回成本及賺取佣金共 $${totalGetBack}` 
         };
+        
+        update(ref(db), up);
+    } else {
+        update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕出價` });
+    }
+};
     </script>
 </body>
 </html>
