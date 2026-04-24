@@ -142,14 +142,45 @@
             }
         };
 
-        window.drawCard = () => {
-            const card = gs.event_deck.shift();
-            update(ref(db, `game_state/players/${pId}/lastEvent`), card.n);
-            update(ref(db, `game_state/players/${pId}/drawCount`), gs.players[pId].drawCount + 1);
-            update(ref(db, 'game_state/event_deck'), gs.event_deck);
-            update(ref(db, 'game_state/last_action'), { user: pId, type: "DRAW", value: `抽到：${card.n}`, detail: card.d });
-            alert(`【${card.n}】\n${card.d}`);
-        };
+window.drawCard = async () => {
+    // 1. 先確認抽卡次數限制
+    if (gs.players[pId].drawCount >= 2) {
+        alert("本回合你已經抽咗 2 張卡，休息下啦！");
+        return;
+    }
+
+    // 2. 檢查牌堆仲有無卡
+    if (!gs.event_deck || gs.event_deck.length === 0) {
+        alert("牌堆已空！請聯絡 MC 重新洗牌。");
+        return;
+    }
+
+    // 3. 抽走第一張卡
+    const currentDeck = [...gs.event_deck]; // 複製牌堆
+    const card = currentDeck.shift(); // 攞出第一張
+
+    // 4. 同步更新 Firebase (重要：要確保 deck 同 player data 同時更新)
+    const updates = {};
+    updates[`game_state/event_deck`] = currentDeck; // 更新剩餘牌堆
+    updates[`game_state/players/${pId}/lastEvent`] = card.n; // 記錄抽到邊張
+    updates[`game_state/players/${pId}/drawCount`] = gs.players[pId].drawCount + 1; // 增加抽卡次數
+    
+    // 5. 記錄到公用 Log 畀 MC 睇
+    updates[`game_state/last_action`] = {
+        user: pId,
+        type: "DRAW",
+        value: `抽到事件：${card.n}`,
+        detail: card.d
+    };
+
+    try {
+        await update(ref(db), updates);
+        alert(`【${card.n}】\n效果：${card.d}`);
+    } catch (error) {
+        console.error("抽卡同步失敗:", error);
+        alert("網絡不穩，抽卡失敗，請重試。");
+    }
+};
     </script>
 </body>
 </html>
