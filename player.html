@@ -2,133 +2,132 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>玩家控制器</title>
+    <title>玩家端 - 港灣 1980</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --green: #9ece6a; }
-        body { font-family: sans-serif; background: var(--bg); color: #c0caf5; padding: 15px; margin: 0; }
-        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #334155; }
-        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 8px; }
-        .grid { display: grid; gap: 8px; }
-        .p-btn { background: #334155; color: white; padding: 10px; border-radius: 6px; border: 1px solid #475569; text-align: left; font-size: 0.8rem; }
-        input { width: 90%; padding: 10px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 5px; margin-top: 5px; }
+        body { font-family: sans-serif; background: var(--bg); color: #c0caf5; padding: 12px; margin: 0; }
+        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid #334155; }
+        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; margin-top: 5px; cursor: pointer; }
+        .info-txt { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; line-height: 1.3; }
+        select, input { width: 100%; padding: 10px; margin-top: 8px; background: #0f172a; color: white; border: 1px solid #475569; border-radius: 5px; box-sizing: border-box; }
+        .prod-btn { background: #334155; color: white; padding: 10px; border: 1px solid #475569; border-radius: 6px; text-align: left; font-size: 0.8rem; }
     </style>
 </head>
 <body>
-    <h3 id="pId" style="text-align:center; color:var(--accent)">載入中...</h3>
+    <h3 id="pId" style="text-align:center; color:var(--accent); margin:5px 0">載入中...</h3>
 
     <div class="section">
-        <div style="display:flex; justify-content:space-between">
-            <span id="role-n">角色</span>
-            <span id="cash" style="color:var(--green)">$0</span>
+        <div style="display:flex; justify-content:space-between; align-items:center">
+            <b>身分: <span id="role-n">-</span></b>
+            <b id="cash" style="color:var(--green); font-size:1.2rem">$0</b>
         </div>
-        <button class="btn" style="background:var(--accent); color:#020617; font-size:0.7em" onclick="useSkill()">⚡ 使用角色技能</button>
+        <div id="role-desc" class="info-txt"></div>
+        <button class="btn" style="background:var(--accent); color:#020617; font-size:0.8rem" onclick="useSkill()">⚡ 發動角色技能</button>
     </div>
 
     <div class="section">
-        <h4 style="margin:0 0 10px">🃏 事件卡 (上限 2 張)</h4>
+        <h4 style="margin:0">🃏 事件卡 (每季限 2 張)</h4>
         <button id="draw-btn" class="btn" style="background:var(--green); color:#020617" onclick="drawCard()">📦 抽取事件卡</button>
+        <div id="last-card" class="info-txt" style="color:var(--accent)"></div>
     </div>
 
     <div class="section">
-        <h4 style="margin:0 0 10px">🛒 入貨 (本季限 2-3 件)</h4>
-        <div id="market" class="grid"></div>
+        <h4 style="margin:0">🛒 市場入貨 (金/銀/銅)</h4>
+        <div id="market" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px"></div>
     </div>
 
-    <div class="section" style="border: 1px solid #e0af68">
-        <h4 style="margin:0; color:#e0af68">🤝 議價成交</h4>
-        <select id="seller" style="width:100%; padding:8px; margin-top:5px; background:#0f172a; color:white">
-            <option value="">選擇賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
-        </select>
-        <input type="number" id="price" placeholder="成交價 (你付出的現金)">
-        <button class="btn" style="background:#e0af68; color:#020617" onclick="sendOffer()">📤 送出交易</button>
+    <div class="section" style="border: 2px solid #e0af68">
+        <h4 style="margin:0; color:#e0af68">🤝 點對點交易 (買入)</h4>
+        <select id="seller" onchange="updateSellerInv()"><option value="">1. 選擇賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option></select>
+        <select id="prod-select"><option value="">2. 選擇貨品</option></select>
+        <input type="number" id="price" placeholder="3. 輸入成交價 $">
+        <button class="btn" style="background:#e0af68; color:#020617" onclick="sendOffer()">📤 送出出價</button>
     </div>
 
-    <button class="btn" style="background:#f7768e; color:white; padding:18px" onclick="sendAct('SELL', '📢 我推銷緊！')">📢 開始推銷</button>
+    <button class="btn" style="background:#f7768e; color:white; height:50px; font-size:1.1rem" onclick="sendAct('SELL', '📢 我推銷緊！', '準備展示 FAB...')">📢 開始推銷</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = { apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI", authDomain: "harbour1980-bac14.firebaseapp.com", databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com", projectId: "harbour1980-bac14", appId: "1:1010384901946:web:302f99b7565aa9063aa203" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
 
+        let g = {};
         const PRODS = [
-            { id: "i1", n: "波士機 (手機)", p: 5000, c: 2000 },
-            { id: "i2", n: "全能王 (手機)", p: 3000, c: 1200 },
-            { id: "i3", n: "神機 (手機)", p: 1000, c: 400 },
-            { id: "i4", n: "隔世大師 (配件)", p: 5000, c: 2000 },
-            { id: "i5", n: "潮流環 (佩戴)", p: 3000, c: 1200 },
-            { id: "i6", n: "健康神 (佩戴)", p: 1000, c: 400 }
+            { id: "i1", n: "波士機 (金)", p: 5000, c: 2000 }, { id: "i2", n: "全能王 (銀)", p: 3000, c: 1200 },
+            { id: "i3", n: "神機 (銅)", p: 1000, c: 400 }, { id: "i4", n: "隔世大師 (金)", p: 5000, c: 2000 },
+            { id: "i5", n: "潮流環 (銀)", p: 3000, c: 1200 }, { id: "i6", n: "健康神 (銅)", p: 1000, c: 400 }
         ];
 
         onValue(ref(db, 'game_state'), (snap) => {
-            const d = snap.val(); if(!d) return;
-            const me = d.players[pId];
+            g = snap.val(); if(!g) return;
+            const me = g.players[pId];
             document.getElementById('pId').innerText = `玩家 ${pId}`;
             document.getElementById('role-n').innerText = me.role.n;
+            document.getElementById('role-desc').innerText = me.role.s;
             document.getElementById('cash').innerText = `$${me.cash}`;
-            document.getElementById('draw-btn').disabled = (me.drawCount >= 2);
-            document.getElementById('draw-btn').innerText = `📦 抽卡 (剩餘 ${2-me.drawCount})`;
+            document.getElementById('draw-btn').innerText = `📦 抽卡 (剩 ${2-me.drawCount})`;
+            document.getElementById('draw-btn').disabled = me.drawCount >= 2;
 
             const mkt = document.getElementById('market'); mkt.innerHTML = "";
-            const invCount = me.inv ? me.inv.length : 0;
             PRODS.forEach(p => {
-                const taker = d.inventory && d.inventory[p.id];
-                let btn = document.createElement('button');
-                btn.className = 'p-btn';
-                btn.disabled = !!taker || invCount >= 3;
-                btn.innerHTML = `<b>${p.n}</b><br><small>按金: $${p.p} | 佣金: $${p.c}</small>${taker?' (已售)':''}`;
-                if(!btn.disabled) btn.onclick = () => buy(p);
-                mkt.appendChild(btn);
+                const taker = g.inventory && g.inventory[p.id];
+                let b = document.createElement('button'); b.className = "prod-btn";
+                b.disabled = !!taker || (me.inv && me.inv.length >= 3);
+                b.innerHTML = `<b>${p.n}</b><br>$${p.p} / $${p.c}`;
+                if(!b.disabled) b.onclick = () => buy(p);
+                mkt.appendChild(b);
             });
         });
 
+        window.updateSellerInv = () => {
+            const sId = document.getElementById('seller').value;
+            const sel = document.getElementById('prod-select');
+            sel.innerHTML = '<option value="">2. 選擇貨品</option>';
+            if(!sId || !g.players[sId].inv) return;
+            g.players[sId].inv.forEach(i => { sel.innerHTML += `<option value="${i.id}">${i.n} (佣 $${i.c})</option>`; });
+        };
+
         window.buy = async (item) => {
-            const snap = await get(ref(db, `game_state/players/${pId}`));
-            let pData = snap.val();
-            let cost = (pData.role.n === "格價大叔") ? item.p - 500 : item.p;
-            if(pData.cash < cost) return alert("錢唔夠");
-            let inv = pData.inv || []; inv.push(item);
+            const me = g.players[pId];
+            let cost = (me.role.n === "格價大叔") ? item.p - 500 : item.p;
+            if(me.cash < cost) return alert("錢唔夠");
             const up = {};
             up[`game_state/inventory/${item.id}`] = pId;
-            up[`game_state/players/${pId}/inv`] = inv;
-            up[`game_state/players/${pId}/cash`] = pData.cash - cost;
+            up[`game_state/players/${pId}/inv`] = [...(me.inv || []), item];
+            up[`game_state/players/${pId}/cash`] = me.cash - cost;
             update(ref(db), up);
         };
 
-        window.drawCard = async () => {
-            const snap = await get(ref(db, 'game_state'));
-            const d = snap.val();
-            if(d.players[pId].drawCount >= 2) return;
-            const deck = d.event_deck || [];
-            const card = deck.shift();
+        window.drawCard = () => {
+            const card = g.event_deck.shift();
             const up = {};
-            up[`game_state/event_deck`] = deck;
-            up[`game_state/players/${pId}/drawCount`] = d.players[pId].drawCount + 1;
-            up[`game_state/last_action`] = { user: pId, type: "DRAW", value: `抽到事件卡：${card}` };
+            up[`game_state/event_deck`] = g.event_deck;
+            up[`game_state/players/${pId}/drawCount`] = g.players[pId].drawCount + 1;
+            up[`game_state/last_action`] = { user: pId, type: "DRAW", value: `🃏 抽到：${card.n}`, detail: card.d };
             update(ref(db), up);
-            alert("抽到：" + card);
+            document.getElementById('last-card').innerText = `最近抽到：${card.n} (${card.d})`;
         };
 
-        window.useSkill = () => sendAct('SKILL', `發動技能：${document.getElementById('role-n').innerText}！`);
+        window.useSkill = () => sendAct('SKILL', `⚡ 發動技能：${g.players[pId].role.n}`, g.players[pId].role.s);
 
-        window.sendOffer = async () => {
+        window.sendOffer = () => {
             const s = document.getElementById('seller').value;
-            const pr = document.getElementById('price').value;
-            if(!s || !pr) return alert("填寫完整交易");
-            // 自動搵返個產品佣金
-            const snap = await get(ref(db, `game_state/players/${s}/inv`));
-            const inv = snap.val() || [];
-            const comm = inv.length > 0 ? inv[0].c : 0; // 簡化：取第一件貨佣金
+            const pid = document.getElementById('prod-select').value;
+            const p = document.getElementById('price').value;
+            if(!s || !pid || !p) return alert("資料未填好");
+            const pName = document.getElementById('prod-select').selectedOptions[0].text;
             update(ref(db, 'game_state/last_action'), {
-                user: pId, seller: s, price: pr, comm: comm, type: "OFFER", value: `出價 $${pr} 買入玩家 ${s} 的產品`
+                user: pId, seller: s, prodId: pid, price: p, type: "OFFER",
+                value: `想用 $${p} 買入玩家 ${s} 的 ${pName}`
             });
         };
 
-        window.sendAct = (t, v) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v });
+        window.sendAct = (t, v, d) => update(ref(db, 'game_state/last_action'), { user: pId, type: t, value: v, detail: d });
     </script>
 </body>
 </html>
