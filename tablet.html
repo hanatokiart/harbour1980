@@ -98,23 +98,49 @@ const EVENTS = [
             document.getElementById('summary-table').innerHTML = h;
         };
 
-        window.confirmSettlement = async () => {
-            const d = (await get(ref(db, 'game_state'))).val();
-            const up = {};
-            Object.keys(d.players).forEach(id => {
-                const p = d.players[id];
-                const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
-                let loss = 0; if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
-                up[`game_state/players/${id}/cash`] = p.cash + 2000 + p.totalComm - tax - loss;
-                up[`game_state/players/${id}/totalComm`] = 0;
-                up[`game_state/players/${id}/inv`] = [];
-                up[`game_state/players/${id}/drawCount`] = 0;
-            });
-            up[`game_state/inventory`] = {};
-            let r = d.round + 1; let q = d.quarter; if(r > 3){ r=1; q++; }
-            update(ref(db, 'game_state'), { round: r, quarter: q, ...up, last_action: {type:"IDLE", user:"SYS", value:"新回合開始"} });
-            document.getElementById('summary-box').style.display = "none";
-        };
+ // 替換 Tablet.html 內的 confirmSettlement 函數
+window.confirmSettlement = async () => {
+    const d = (await get(ref(db, 'game_state'))).val();
+    const up = {};
+    const pData = d.players;
+
+    // 1. 計算底薪與稅務 (這部分確保錢會變)
+    Object.keys(pData).forEach(id => {
+        const p = pData[id];
+        const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+        let loss = 0; 
+        if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
+        
+        // 核心公式：現有錢 + 底薪 + 累積佣金 - 稅 - 蝕一半
+        const newCash = p.cash + 2000 + (p.totalComm || 0) - tax - loss;
+        
+        up[`game_state/players/${id}/cash`] = newCash;
+        up[`game_state/players/${id}/totalComm`] = 0; // 重置本輪佣金
+        up[`game_state/players/${id}/inv`] = [];      // 清空本輪持貨
+        up[`game_state/players/${id}/drawCount`] = 0; // 重置抽卡次數
+        up[`game_state/players/${id}/lastEvent`] = "無"; // 清除上輪事件
+        up[`game_state/players/${id}/hand`] = p.hand || "無"; // 手牌保留
+    });
+
+    // 2. 處理季度結束 (第 3 輪結束時)
+    let nextR = d.round + 1;
+    let nextQ = d.quarter;
+    if (nextR > 3) {
+        nextR = 1;
+        nextQ += 1;
+        // 這裡可以觸發 AP 結算 Log
+        up[`game_state/last_action`] = { user: "SYSTEM", value: "🌟 季度結束！請根據數據頒發 AP 成就點。" };
+    } else {
+        up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成，底薪已發放。` };
+    }
+
+    up[`game_state/round`] = nextR;
+    up[`game_state/quarter`] = nextQ;
+    up[`game_state/inventory`] = {}; // 釋放市場貨源
+
+    await update(ref(db), up);
+    document.getElementById('summary-box').style.display = 'none';
+};
     </script>
 </body>
 </html>
