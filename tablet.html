@@ -79,6 +79,37 @@
                 last_action: { type: "IDLE", user: "SYS" }
             });
         };
+        // 1. 定義 10 張事件卡內容
+const EVENTS = [
+    { n: "政府派錢", d: "本輪買家預算加 $2,000" },
+    { n: "廣告加持", d: "賣出電話類，佣金 x 2" },
+    { n: "稅務減免", d: "本輪不成交罰款降至 $0" },
+    { n: "壞貨退回", d: "未賣出的貨，按金 100% 退回" },
+    { n: "強制購買", d: "買家必須成交（除非現金不足）" },
+    { n: "奧客降臨", d: "買家可無視底價壓價，不得拒絕" },
+    { n: "連鎖效應", d: "成功成交後，可立即再抽一張事件卡" },
+    { n: "黑市交易", d: "本輪賣出貨品，按金不扣除直接變利潤" },
+    { n: "物流延誤", d: "本輪所有玩家 AP 消耗額外 +1" },
+    { n: "名牌效應", d: "底價自動上升 $500，買家依然接受" }
+];
+
+window.initGame = function() {
+    let sRoles = [...ROLES].sort(() => Math.random() - 0.5);
+    // 2. 將 10 張卡洗牌
+    let sEvents = [...EVENTS].sort(() => Math.random() - 0.5); 
+
+    set(ref(db, 'game_state'), {
+        round: 1,
+        event_deck: sEvents, // 將洗好嘅 10 張卡放入口袋
+        players: {
+            P1: { cash: 10000, ap: 0, role: sRoles[0], hand: [] }, // hand 初始係空數組
+            P2: { cash: 10000, ap: 0, role: sRoles[1], hand: [] },
+            P3: { cash: 10000, ap: 0, role: sRoles[2], hand: [] },
+            P4: { cash: 10000, ap: 0, role: sRoles[3], hand: [] }
+        },
+        last_action: { type: "IDLE", user: "SYS" }
+    });
+};
 
         // 監聽數據變化
         onValue(ref(db, 'game_state'), (snapshot) => {
