@@ -2,52 +2,44 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - MC 數據中心</title>
+    <title>港灣 1980 - MC 中央控制台 (終極版)</title>
     <style>
         :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --lose: #ef4444; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 380px 1fr; height: 100vh; }
         .sidebar { background: #0f172a; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
         .p-card { background: var(--card); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid var(--accent); }
-        .p-card h4 { margin: 0; color: var(--accent); }
-        .skill-text { font-size: 0.75em; color: #94a3b8; margin-top: 5px; font-style: italic; }
-        .main { padding: 40px; position: relative; display: flex; flex-direction: column; align-items: center; }
-        #full-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px; }
-        .summary-table { width: 95%; border-collapse: collapse; margin-top: 20px; background: #0f172a; font-size: 0.9rem; }
-        .summary-table th, .summary-table td { border: 1px solid #334155; padding: 12px; text-align: center; }
+        .skill-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 5px; font-style: italic; line-height: 1.4; }
+        .main { padding: 40px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+        #log-screen { width: 90%; background: #0f172a; border-radius: 12px; padding: 20px; border: 1px solid #334155; height: 300px; overflow-y: auto; margin-bottom: 20px; }
+        .log-entry { padding: 10px; border-bottom: 1px solid #1e293b; font-size: 0.95rem; border-left: 3px solid transparent; }
+        .log-DRAW { border-left-color: var(--win); color: #9ece6a; }
+        .log-OFFER { border-left-color: #e0af68; color: #e0af68; }
+        .summary-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; }
+        .summary-table th, .summary-table td { padding: 15px; border: 1px solid #334155; text-align: center; }
         button { cursor: pointer; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; }
-        .btn-win { background: var(--win); color: white; font-size: 1.5rem; }
-        .btn-next { background: var(--accent); color: #020617; margin-top: 20px; }
+        .btn-next { background: var(--accent); color: #020617; margin-top: 20px; font-size: 1.1rem; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2 style="text-align:center">📊 季度數據監控</h2>
+        <h2 style="text-align:center">📊 實時戰報監控</h2>
         <div id="player-display"></div>
-        <button onclick="initGame()" style="width:100%; background:#475569; color:white; margin-top:10px">🔄 初始化 (完整技能與事件)</button>
+        <button onclick="initGame()" style="width:100%; background:var(--lose); color:white; margin-top:10px">🔄 重置遊戲 (含所有數據)</button>
     </div>
     <div class="main">
-        <div id="game-info" style="font-size:1.5rem; color:var(--accent); font-weight:bold"></div>
-        <div id="summary-area" style="display:none; width:100%">
-            <h1 style="color:var(--win)">季度結算表</h1>
-            <table class="summary-table" id="summary-body"></table>
-            <button class="btn-next" onclick="nextRound()">確認結算 / 進入下一回合</button>
+        <h2 id="round-info" style="color:var(--accent); margin:0">載入中...</h2>
+        <div id="log-screen">
+            <h4 style="margin:0 0 10px; color:#94a3b8">📡 系統訊息與玩家動作</h4>
+            <div id="log-content"></div>
         </div>
-        <div id="idle-msg" style="margin-top:100px; opacity:0.2; text-align:center">
-            <h1>系統監控中...</h1>
-            <p>等待玩家進行推銷或成交出價</p>
-        </div>
-        <button class="btn-next" onclick="showSummary()" style="position:fixed; bottom:20px; right:20px">🏁 完結本回合 / 季度結算</button>
-    </div>
 
-    <div id="full-screen">
-        <h2 id="act-user" style="color:var(--accent)"></h2>
-        <h1 id="act-msg" style="margin:20px 0; line-height:1.4"></h1>
-        <div id="act-detail" style="font-size:1.5rem; color:#94a3b8; background:rgba(255,255,255,0.05); padding:20px; border-radius:10px; max-width:800px"></div>
-        <div id="deal-btns" style="display:none; gap:20px; margin-top:30px">
-            <button class="btn-win" onclick="deal(true)">✅ 確認成交 (即時結算)</button>
-            <button style="background:var(--lose); color:white" onclick="closeScreen()">❌ 取消交易</button>
+        <div id="summary-area" style="display:none; width:90%">
+            <h2 style="color:var(--win)">季度銷售結算表</h2>
+            <table class="summary-table" id="summary-body"></table>
+            <button class="btn-next" onclick="nextRound()">確認並進入下一階段</button>
         </div>
-        <button onclick="closeScreen()" style="margin-top:40px; background:#475569; color:white">關閉視窗</button>
+
+        <button class="btn-next" onclick="showSummary()" style="position:fixed; bottom:30px; right:30px">🏁 結算本季度 / 回合</button>
     </div>
 
     <script type="module">
@@ -58,89 +50,61 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 完整事件庫
         const EVENTS = [
-            {n:"政府派錢", d:"本輪買家預算額外增加 $2,000。"},
-            {n:"廣告加持", d:"本輪賣出『手機類』產品，佣金雙倍計算！"},
-            {n:"稅務減免", d:"本輪『不購買稅』(罰款) 降至 $0。"},
-            {n:"壞貨退回", d:"本輪未賣出的貨物，可退回 100% 按金。"},
-            {n:"強制購買", d:"買家聽完推銷，除非現金不足，否則必須成交。"},
-            {n:"奧客降臨", d:"買家可無視底價瘋狂壓價，賣家不可拒絕 (但可不成交)。"},
-            {n:"黑市交易", d:"本輪成交不計入銷售張數，但佣金加 $1,000。"},
-            {n:"連鎖效應", d:"若成交，下一位向同一買家推銷的人，佣金 +$500。"},
-            {n:"物流延誤", d:"本輪所有入貨成本增加 $300。"},
-            {n:"名牌效應", d:"金級產品推銷時間增加 30 秒。"}
+            {n:"政府派錢", d:"本輪買家預算加 $2,000。"}, {n:"廣告加持", d:"『手機類』佣金雙倍！"},
+            {n:"稅務減免", d:"『不購買稅』(罰款) 降至 $0。"}, {n:"壞貨退回", d:"未賣出的貨，可退回 100% 按金。"},
+            {n:"強制購買", d:"買家聽完推銷，除非現金不足，否則必須成交。"}, {n:"奧客降臨", d:"買家可無視底價瘋狂壓價，賣家不可拒絕。"},
+            {n:"黑市交易", d:"本輪成交不計入銷售張數，但佣金加 $1,000。"}, {n:"連鎖效應", d:"下一位向同一買家推銷，佣金 +$500。"},
+            {n:"物流延誤", d:"本輪所有入貨成本增加 $300。"}, {n:"名牌效應", d:"金級產品推銷時間增加 30 秒。"}
         ].sort(()=>Math.random()-0.5);
 
         window.initGame = () => {
             const roles = [
-                {n:"港產女王", s:"【貴精不貴多】：賣出『金級』產品時，佣金外加 +$2,000。"},
-                {n:"品質大師", s:"【專業免責】：免疫任何『神秘顧客』投票導致的扣分。"},
-                {n:"格價大叔", s:"【成本控制】：每次入貨（支付按金）時，總成本自動 -$500。"},
-                {n:"潮流先鋒", s:"【百搭王】：手上貨品永遠視為當季，無視換季罰分。"}
+                {n:"港產女王", s:"賣出『金級』產品時，佣金外加 +$2,000。"},
+                {n:"品質大師", s:"免疫任何『神秘顧客』投票導致的扣分。"},
+                {n:"格價大叔", s:"每次入貨（支付按金）時，總成本自動 -$500。"},
+                {n:"潮流先鋒", s:"手上貨品永遠視為當季，無視換季罰分。"}
             ].sort(()=>Math.random()-0.5);
             
             set(ref(db, 'game_state'), {
                 round: 1, quarter: 1, inventory: {}, event_deck: EVENTS,
                 players: {
-                    P1: { active: true, cash: 10000, role: roles[0], totalComm: 0, ap: 0, drawCount: 0, inv: [] },
-                    P2: { active: true, cash: 10000, role: roles[1], totalComm: 0, ap: 0, drawCount: 0, inv: [] },
-                    P3: { active: true, cash: 10000, role: roles[2], totalComm: 0, ap: 0, drawCount: 0, inv: [] },
-                    P4: { active: true, cash: 10000, role: roles[3], totalComm: 0, ap: 0, drawCount: 0, inv: [] }
+                    P1: { active: true, cash: 10000, role: roles[0], totalComm: 0, drawCount: 0, inv: [] },
+                    P2: { active: true, cash: 10000, role: roles[1], totalComm: 0, drawCount: 0, inv: [] },
+                    P3: { active: true, cash: 10000, role: roles[2], totalComm: 0, drawCount: 0, inv: [] },
+                    P4: { active: true, cash: 10000, role: roles[3], totalComm: 0, drawCount: 0, inv: [] }
                 },
-                last_action: { type: "IDLE", user: "SYS" }
+                last_action: { type: "IDLE", user: "SYS", value: "遊戲已初始化" }
             });
         };
 
         onValue(ref(db, 'game_state'), (snap) => {
             const d = snap.val(); if(!d) return;
-            document.getElementById('game-info').innerText = `第 ${d.quarter} 季度 - 第 ${d.round} 回合`;
-            const list = document.getElementById('player-display');
-            list.innerHTML = "";
+            document.getElementById('round-info').innerText = `第 ${d.quarter} 季度 - 第 ${d.round} 回合`;
+            const list = document.getElementById('player-display'); list.innerHTML = "";
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                list.innerHTML += `<div class="p-card ${p.active?'':'inactive'}">
+                list.innerHTML += `<div class="p-card">
                     <h4>${id} - ${p.role.n}</h4>
-                    <div class="skill-text">${p.role.s}</div>
-                    <div style="font-size:0.9em; margin-top:8px">💰 $${p.cash} | 📈 $${p.totalComm}</div>
+                    <div class="skill-desc">${p.role.s}</div>
+                    <div style="font-size:0.9rem; margin-top:8px">💰 $${p.cash} | 📈 $${p.totalComm}</div>
                 </div>`;
             });
-            if(d.last_action.type !== "IDLE") showAct(d.last_action);
+            const logContent = document.getElementById('log-content');
+            const entry = `<div class="log-entry log-${d.last_action.type}">
+                <b>[${d.last_action.user}]</b> ${d.last_action.value} <br>
+                <small>${d.last_action.detail || ''}</small>
+            </div>`;
+            logContent.innerHTML = entry + logContent.innerHTML;
         });
-
-        function showAct(act) {
-            const fs = document.getElementById('full-screen');
-            document.getElementById('act-user').innerText = `玩家 ${act.user}`;
-            document.getElementById('act-msg').innerText = act.type === "OFFER" ? "🤝 收到買入請求！" : act.value;
-            document.getElementById('act-detail').innerHTML = act.type === "OFFER" ? act.value : act.detail || "";
-            document.getElementById('deal-btns').style.display = act.type === "OFFER" ? "flex" : "none";
-            fs.style.display = "flex";
-        }
-
-        window.deal = async (ok) => {
-            if(ok) {
-                const d = (await get(ref(db, 'game_state'))).val();
-                const act = d.last_action;
-                const buyer = d.players[act.user];
-                const seller = d.players[act.seller];
-                const soldItem = seller.inv.find(i => i.id === act.prodId);
-                
-                const up = {};
-                up[`game_state/players/${act.user}/cash`] = buyer.cash - parseInt(act.price);
-                up[`game_state/players/${act.seller}/totalComm`] = seller.totalComm + (soldItem ? soldItem.c : 0);
-                up[`game_state/players/${act.seller}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
-                up[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "✅ 交易達成！" };
-                update(ref(db), up);
-            }
-            closeScreen();
-        };
 
         window.showSummary = async () => {
             const d = (await get(ref(db, 'game_state'))).val();
             document.getElementById('summary-area').style.display = "block";
-            document.getElementById('idle-msg').style.display = "none";
-            let html = `<tr><th>玩家</th><th>身份</th><th>手頭現金</th><th>累計佣金</th></tr>`;
-            Object.keys(d.players).forEach(id => { if(d.players[id].active) html += `<tr><td>${id}</td><td>${d.players[id].role.n}</td><td>$${d.players[id].cash}</td><td>$${d.players[id].totalComm}</td></tr>`; });
+            let html = `<tr><th>玩家</th><th>身份</th><th>現金</th><th>本季佣金</th></tr>`;
+            Object.keys(d.players).forEach(id => {
+                if(d.players[id].active) html += `<tr><td>${id}</td><td>${d.players[id].role.n}</td><td>$${d.players[id].cash}</td><td>$${d.players[id].totalComm}</td></tr>`;
+            });
             document.getElementById('summary-body').innerHTML = html;
         };
 
@@ -148,14 +112,8 @@
             const d = (await get(ref(db, 'game_state'))).val();
             let nR = d.round + 1; let nQ = d.quarter;
             if(nR > 3) { nR = 1; nQ++; }
-            update(ref(db, 'game_state'), { round: nR, quarter: nQ, last_action: {type:"IDLE", user:"SYS"} });
+            update(ref(db, 'game_state'), { round: nR, quarter: nQ, last_action: {type:"IDLE", user:"SYS", value:"進入新階段"} });
             document.getElementById('summary-area').style.display = "none";
-            document.getElementById('idle-msg').style.display = "block";
-        };
-
-        window.closeScreen = () => {
-            document.getElementById('full-screen').style.display = "none";
-            update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
         };
     </script>
 </body>
