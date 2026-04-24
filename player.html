@@ -2,59 +2,70 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>玩家端 - 港灣 1980 (V2.1)</title>
+    <title>玩家端 - 港灣 1980 (V2.3 事件回歸版)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --trophy: #a855f7; --gold: #e0af68; }
-        body { font-family: sans-serif; background: var(--bg); color: white; padding: 10px; margin: 0; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --trophy: #a855f7; --gold: #f59e0b; --danger: #ef4444; --event: #ec4899; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; padding: 10px; margin: 0; }
         .section { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
         .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 5px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-        .p-btn { background: #334155; color: white; padding: 8px; font-size: 0.6rem; border: 1px solid #475569; border-radius: 6px; line-height: 1.4; position: relative; }
-        .tag { position: absolute; top: 2px; left: 2px; font-size: 0.5rem; padding: 1px 3px; border-radius: 3px; background: rgba(0,0,0,0.5); }
-        #deal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-        .hand-box { margin-top:10px; padding:10px; background:#0f172a; border-radius:8px; border: 1px dashed var(--accent); }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .p-btn { background: #334155; color: white; padding: 10px; font-size: 0.7rem; border: 1px solid #475569; border-radius: 8px; line-height: 1.4; position: relative; text-align: left; }
+        .tag { position: absolute; top: 5px; right: 5px; font-size: 0.6rem; padding: 2px 4px; border-radius: 4px; background: rgba(0,0,0,0.5); }
+        #deal-modal, #event-modal { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.98); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; text-align: center; }
+        .stat-val { color: var(--win); font-size: 1.2rem; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="section">
-        <div style="display:flex; justify-content:space-between; align-items: center;">
+    <div class="section" style="border-top: 4px solid var(--event)">
+        <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom:10px;">
             <div>
-                <b id="role-display">-</b><br>
+                <b id="role-display" style="font-size:1.1rem">-</b><br>
                 <small id="skill-text" style="color:var(--accent)"></small>
             </div>
-            <b id="cash-display" style="color:var(--win); font-size:1.2rem">$0</b>
+            <div style="text-align:right">
+                <small>現金</small><br>
+                <span id="cash-display" class="stat-val">$0</span>
+            </div>
         </div>
+        <button id="draw-btn" class="btn" style="background:var(--event); color:white; font-size:1.1rem;" onclick="drawEvent()">🃏 抽取本輪事件 (每輪限一次)</button>
     </div>
 
     <div id="deal-modal">
-        <h2 style="color:var(--accent)">💰 收到交易出價！</h2>
-        <div id="offer-info" style="margin:20px; font-size:1.2rem; color:white; text-align:center"></div>
-        <button class="btn" style="background:var(--win); color:white" onclick="replyOffer(true)">✅ 接受成交</button>
-        <button class="btn" style="background:#ef4444; color:white; margin-top:15px" onclick="replyOffer(false)">❌ 拒絕</button>
+        <h2 style="color:var(--gold)">💰 收到交易出價！</h2>
+        <div id="offer-info" style="margin:20px; font-size:1.3rem;"></div>
+        <button class="btn" style="background:var(--win); color:white; height:60px" onclick="replyOffer(true)">✅ 接受成交</button>
+        <button class="btn" style="background:var(--danger); color:white; margin-top:20px" onclick="replyOffer(false)">❌ 拒絕</button>
     </div>
 
-    <div class="section" style="border-left: 5px solid var(--win)">
-        <h5 style="margin:0">🎒 倉庫 (已扣按金)</h5>
-        <div id="my-inv"></div>
-    </div>
-
-    <div class="section" style="border-left: 5px solid var(--trophy)">
-        <h5 style="margin:0; color:var(--trophy)">🏆 本輪累積佣金 (LP 來源)</h5>
-        <div id="my-trophies" style="font-size:1rem; margin-top:5px; font-weight:bold; color:#d8b4fe">$0</div>
+    <div id="event-modal">
+        <h1 style="color:var(--event); font-size:3rem">📢</h1>
+        <h2 id="event-title" style="color:var(--event)"></h2>
+        <p id="event-desc" style="font-size:1.2rem; margin:20px; color:#cbd5e1"></p>
+        <button class="btn" style="background:var(--accent); color:black" onclick="document.getElementById('event-modal').style.display='none'">明白</button>
     </div>
 
     <div class="section">
-        <h5 style="margin:0 0 8px">📦 市場入貨 (上限 3 件)</h5>
+        <h5 style="margin:0 0 10px; color:var(--win)">🎒 我的倉庫 <small id="inv-count">(0/3)</small></h5>
+        <div id="my-inv"></div>
+    </div>
+
+    <div class="section">
+        <h5 style="margin:0 0 10px; color:var(--accent)">📦 批發市場 (入貨)</h5>
         <div id="mkt-list" class="grid"></div>
     </div>
 
     <div class="section" style="border: 2px solid var(--gold)">
-        <h5 style="margin:0; color:var(--gold)">🤝 點對點交易 (出貨)</h5>
-        <select id="target-p" onchange="updateTargetInv()" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white"><option value="">1. 揀賣家</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option></select>
-        <select id="target-item" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white"><option value="">2. 揀產品</option></select>
-        <input type="number" id="offer-price" placeholder="3. 出價 $" style="width:100%; padding:10px; margin-top:5px; background:#0f172a; color:white; box-sizing:border-box">
-        <button class="btn" style="background:var(--gold)" onclick="sendOffer()">📤 送出交易請求</button>
+        <h5 style="margin:0 0 8px; color:var(--gold)">🤝 向玩家出貨 (賺取佣金)</h5>
+        <select id="target-p" onchange="updateTargetInv()" style="width:100%; padding:10px; margin-bottom:5px; background:#0f172a; color:white; border:1px solid #334155; border-radius:8px;">
+            <option value="">1. 選擇買家</option>
+            <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
+        </select>
+        <select id="target-item" style="width:100%; padding:10px; margin-bottom:5px; background:#0f172a; color:white; border:1px solid #334155; border-radius:8px;">
+            <option value="">2. 選擇產品</option>
+        </select>
+        <input type="number" id="offer-price" placeholder="3. 出價 $" style="width:100%; padding:10px; background:#0f172a; color:white; border:1px solid #334155; border-radius:8px; box-sizing:border-box">
+        <button class="btn" style="background:var(--gold); color:black" onclick="sendOffer()">📤 送出成交請求</button>
     </div>
 
     <script type="module">
@@ -66,27 +77,32 @@
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
 
-        // 16件 80年代復古產品
         const PRODS = [
-            // 電子類 (對應 港產女王)
             { id:"i1", n:"摩圖羅拉 3380", type:"電子", p:8000, c:3000, s:15000 },
             { id:"i2", n:"新力 走路人", type:"電子", p:1500, c:600, s:2800 },
             { id:"i3", n:"愛華 卡式機", type:"電子", p:1200, c:500, s:2200 },
             { id:"i4", n:"聲寶 錄影機", type:"電子", p:4500, c:1800, s:8000 },
             { id:"i5", n:"精工 電子鐘", type:"電子", p:500, c:200, s:1000 },
             { id:"i6", n:"卡西歐 計算機", type:"電子", p:300, c:120, s:600 },
-            // 奢侈類
             { id:"i7", n:"老利時 水鬼", type:"奢侈", p:12000, c:4500, s:22000 },
             { id:"i8", n:"柏得菲臘 懷錶", type:"奢侈", p:15000, c:6000, s:28000 },
             { id:"i9", n:"都彭 打火機", type:"奢侈", p:2500, c:1000, s:4500 },
             { id:"i10", n:"軒尼斯 XO", type:"奢侈", p:1800, c:800, s:3500 },
-            // 生活類 (對應 生活先鋒)
             { id:"i11", n:"金星 電視機", type:"生活", p:3500, c:1500, s:6500 },
             { id:"i12", n:"任天堂 紅白機", type:"生活", p:800, c:400, s:1600 },
             { id:"i13", n:"駱駝牌 暖水壺", type:"生活", p:250, c:120, s:550 },
             { id:"i14", n:"樂信 抽氣扇", type:"生活", p:600, c:250, s:1200 },
             { id:"i15", n:"大金 冷氣機", type:"生活", p:5000, c:2000, s:9500 },
             { id:"i16", n:"虎牌 電飯煲", type:"生活", p:1000, c:450, s:2000 }
+        ];
+
+        const EVENTS = [
+            { t: "💰 橫財就手", d: "在路邊拾到錢包！現金 +$2000", action: (p) => ({ cash: p.cash + 2000 }) },
+            { t: "📉 股災降臨", d: "恆生指數大跌，資產縮水！現金 -$1500", action: (p) => ({ cash: Math.max(0, p.cash - 1500) }) },
+            { t: "🏦 稅務減免", d: "本輪結算「不購買稅」全免！", action: () => ({ lastEvent: "稅務減免" }) },
+            { t: "🚚 物流延誤", d: "倉庫貨物被海關扣查，需支付罰款 $1000", action: (p) => ({ cash: Math.max(0, p.cash - 1000) }) },
+            { t: "🔥 商業奇才", d: "你被選為年度銷售員，底薪加碼！現金 +$3000", action: (p) => ({ cash: p.cash + 3000 }) },
+            { t: "💔 貨物損毀", d: "倉庫漏水損壞了一件貨物，支付維修費 $800", action: (p) => ({ cash: Math.max(0, p.cash - 800) }) }
         ];
 
         let gs = {};
@@ -98,99 +114,105 @@
             document.getElementById('role-display').innerText = `${pId} - ${me.role.n}`;
             document.getElementById('skill-text').innerText = me.role.s;
             document.getElementById('cash-display').innerText = `$${me.cash}`;
-            document.getElementById('my-trophies').innerText = `$${me.totalComm || 0}`;
-
+            document.getElementById('draw-btn').disabled = (me.drawCount >= 1);
+            
             // 倉庫更新
             const invArea = document.getElementById('my-inv'); invArea.innerHTML = "";
-            if(me.inv && me.inv.length > 0) {
+            const invCount = me.inv ? me.inv.length : 0;
+            document.getElementById('inv-count').innerText = `(${invCount}/3)`;
+            if(me.inv) {
                 me.inv.forEach(i => {
-                    const info = PRODS.find(p => p.id === i.id);
-                    invArea.innerHTML += `
-                        <div style="padding:8px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-                            <span><small style="color:#94a3b8">[${i.type}]</small> ${i.n}</span>
-                            <div style="text-align:right">
-                                <small style="color:#94a3b8">佣金: $${i.c}</small><br>
-                                <b style="color:var(--win); font-size:0.8rem">零售: $${info.s}</b>
-                            </div>
-                        </div>`;
+                    invArea.innerHTML += `<div style="padding:8px; background:#0f172a; border-radius:8px; margin-bottom:5px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                        <span><small style="color:var(--accent)">[${i.type}]</small> ${i.n}</span>
+                        <b style="color:var(--win)">零售: $${i.s}</b>
+                    </div>`;
                 });
-            } else { invArea.innerHTML = "<div style='padding:10px; text-align:center;'><small style='color:#ef4444'>⚠️ 倉庫空！連續三輪不成交將取消底薪</small></div>"; }
+            }
 
             // 市場更新
             const mkt = document.getElementById('mkt-list'); mkt.innerHTML = "";
             PRODS.forEach(p => {
-                const buyer = gs.inventory && gs.inventory[p.id];
+                const buyerId = gs.inventory && gs.inventory[p.id];
                 let b = document.createElement('button'); b.className = "p-btn";
-                let typeColor = p.type === '電子' ? '#38bdf8' : (p.type === '生活' ? '#22c55e' : '#e0af68');
-                if (buyer) {
-                    b.innerHTML = `${p.n}<br><span style="color:#ef4444">已被 ${buyer} 購入</span>`;
-                    b.disabled = true; b.style.opacity = "0.4";
+                let actualCost = (me.role.n === "格價大叔") ? p.p - 500 : p.p;
+                if (buyerId) {
+                    b.innerHTML = `${p.n}<br><span style="color:var(--danger)">已被 ${buyerId} 購入</span>`;
+                    b.disabled = true; b.style.opacity = "0.3";
                 } else {
-                    b.innerHTML = `<span class="tag" style="color:${typeColor}">${p.type}</span>${p.n}<br>成本:$${p.p}<br><span style="color:var(--win)">零售:$${p.s}</span>`;
-                    b.disabled = (me.inv && me.inv.length >= 3);
-                    b.onclick = () => window.buyItem(p);
+                    b.innerHTML = `<span class="tag">${p.type}</span><b>${p.n}</b><br>成本: $${actualCost}<br><span style="color:var(--win)">建議零售: $${p.s}</span>`;
+                    b.disabled = (invCount >= 3);
+                    b.onclick = () => window.buyItem(p, actualCost);
                 }
                 mkt.appendChild(b);
             });
 
-            // 交易彈窗
+            // 交易請求
             const act = gs.last_action;
             if(act && act.type === "OFFER" && act.seller === pId) {
-                document.getElementById('offer-info').innerHTML = `<b>${act.user}</b> 想用 <b style="color:var(--win)">$${act.price}</b><br>買你的 <b>${act.prodName}</b>`;
+                document.getElementById('offer-info').innerHTML = `玩家 <b>${act.user}</b> 想買：<br><b style="color:var(--win)">${act.prodName}</b><br>出價：<b style="color:var(--gold)">$${act.price}</b>`;
                 document.getElementById('deal-modal').style.display = "flex";
             } else { document.getElementById('deal-modal').style.display = "none"; }
         });
 
-        window.buyItem = (p) => {
+        window.drawEvent = async () => {
+            const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
             const me = gs.players[pId];
-            let cost = (me.role.n === "格價大叔") ? p.p - 500 : p.p;
-            if(me.cash < cost) return alert("錢唔夠");
+            const result = ev.action(me);
+            const up = { ...result, drawCount: 1 };
+            
+            document.getElementById('event-title').innerText = ev.t;
+            document.getElementById('event-desc').innerText = ev.d;
+            document.getElementById('event-modal').style.display = "flex";
+
+            const updates = {};
+            Object.keys(up).forEach(k => updates[`game_state/players/${pId}/${k}`] = up[k]);
+            updates[`game_state/last_action`] = { user: pId, value: `觸發了事件：${ev.t}` };
+            await update(ref(db), updates);
+        };
+
+        window.buyItem = (p, cost) => {
+            if(gs.players[pId].cash < cost) return alert("錢唔夠");
             const up = {};
             up[`game_state/inventory/${p.id}`] = pId;
-            up[`game_state/players/${pId}/inv`] = [...(me.inv || []), p];
-            up[`game_state/players/${pId}/cash`] = me.cash - cost;
+            up[`game_state/players/${pId}/inv`] = [...(gs.players[pId].inv || []), p];
+            up[`game_state/players/${pId}/cash`] = gs.players[pId].cash - cost;
             update(ref(db), up);
         };
 
         window.updateTargetInv = () => {
-            const tId = document.getElementById('target-p').value;
-            const sel = document.getElementById('target-item'); sel.innerHTML = '<option value="">2. 揀產品</option>';
-            if(tId && gs.players[tId].inv) gs.players[tId].inv.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.n}</option>`);
+            const sel = document.getElementById('target-item'); 
+            sel.innerHTML = '<option value="">2. 選擇產品</option>';
+            if(gs.players[pId].inv) gs.players[pId].inv.forEach(i => sel.innerHTML += `<option value="${i.id}">${i.n}</option>`);
         };
 
         window.sendOffer = () => {
-            const seller = document.getElementById('target-p').value;
+            const buyer = document.getElementById('target-p').value;
             const pid = document.getElementById('target-item').value;
             const price = document.getElementById('offer-price').value;
-            if(!seller || !pid || !price) return alert("未填完！");
-            update(ref(db, 'game_state/last_action'), { 
-                user: pId, seller: seller, prodId: pid, 
-                prodName: document.getElementById('target-item').selectedOptions[0].text, 
-                price: price, type: "OFFER" 
-            });
+            if(!buyer || !pid || !price || buyer === pId) return alert("資料錯誤！");
+            update(ref(db, 'game_state/last_action'), { user: pId, seller: buyer, prodId: pid, prodName: document.getElementById('target-item').selectedOptions[0].text, price: price, type: "OFFER" });
         };
 
         window.replyOffer = (ok) => {
             const act = gs.last_action;
             if(ok) {
-                const seller = gs.players[pId];
+                const buyer = gs.players[pId];
+                const seller = gs.players[act.user];
+                if(buyer.cash < act.price) return alert("你錢唔夠成交！");
                 const item = seller.inv.find(i => i.id === act.prodId);
-                
-                let comm = item.c; 
-                // FAB 角色加成
+                let comm = item.c;
                 if(seller.role.n === "港產女王" && item.type === "電子") comm += 1000;
                 if(seller.role.n === "生活先鋒" && item.type === "生活") comm += 1000;
-
-                const totalGetBack = parseInt(act.price) + comm;
                 const up = {};
-                up[`game_state/players/${act.user}/cash`] = gs.players[act.user].cash - parseInt(act.price);
-                up[`game_state/players/${pId}/cash`] = seller.cash + totalGetBack;
-                up[`game_state/players/${pId}/totalComm`] = (seller.totalComm || 0) + comm;
-                up[`game_state/players/${pId}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
-                up[`game_state/last_action`] = { type: "DONE", user: pId, value: `🤝 成交！賺取佣金 $${comm}` };
+                up[`game_state/players/${pId}/cash`] = buyer.cash - parseInt(act.price);
+                up[`game_state/players/${act.user}/cash`] = seller.cash + parseInt(act.price) + comm;
+                up[`game_state/players/${act.user}/totalComm`] = (seller.totalComm || 0) + comm;
+                up[`game_state/players/${act.user}/currentComm`] = (seller.currentComm || 0) + comm;
+                up[`game_state/players/${act.user}/inv`] = seller.inv.filter(i => i.id !== act.prodId);
+                up[`game_state/last_action`] = { type: "DONE", user: act.user, value: `🤝 成交！${act.user} 賺取佣金 $${comm}` };
                 update(ref(db), up);
             } else {
-                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕出價` });
+                update(ref(db, 'game_state/last_action'), { type: "IDLE", user: pId, value: `❌ 拒絕交易` });
             }
         };
     </script>
