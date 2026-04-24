@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - MC 結算中心 (V2 深度版)</title>
+    <title>港灣 1980 - MC 結算中心 (V2.2 產品擴充版)</title>
     <style>
         :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --lose: #ef4444; --gold: #f59e0b; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 380px 1fr; height: 100vh; }
@@ -11,8 +11,8 @@
         .lp-badge { position: absolute; top: 10px; right: 10px; background: var(--gold); color: #000; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
         .main { padding: 30px; display: flex; flex-direction: column; overflow: hidden; }
         #log-screen { flex: 1; background: #000; border-radius: 12px; padding: 15px; border: 1px solid #334155; overflow-y: auto; color: #9ece6a; font-family: monospace; margin-bottom: 20px; font-size: 0.9rem; }
-        .summary-box { background: var(--card); padding: 20px; border-radius: 15px; border: 2px solid var(--accent); position: fixed; inset: 50px; z-index: 100; display: none; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .summary-box { background: var(--card); padding: 20px; border-radius: 15px; border: 2px solid var(--accent); position: fixed; inset: 50px; z-index: 100; display: none; overflow-y: auto; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; }
         th, td { padding: 12px; border: 1px solid #334155; text-align: center; }
         button { cursor: pointer; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; background: var(--accent); color: #020617; }
         .lazy-tag { background: var(--lose); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 5px; }
@@ -27,7 +27,7 @@
     <div class="main">
         <h2 id="round-info">載入中...</h2>
         <div id="log-screen"><div id="log-content"></div></div>
-        <button onclick="showSummary()" style="height:60px; font-size:1.2rem">🏁 回合結算 (計薪/計LP/清季末)</button>
+        <button onclick="showSummary()" style="height:60px; font-size:1.2rem">🏁 進入結算程序</button>
     </div>
 
     <div id="summary-box" class="summary-box">
@@ -36,7 +36,7 @@
         <table id="summary-table"></table>
         <div style="margin-top:20px; text-align:center">
             <button id="confirm-btn" onclick="confirmSettlement()" style="background:var(--win); color:white; font-size:1.1rem">✅ 發放薪金並進入下一輪</button>
-            <button onclick="document.getElementById('summary-box').style.display='none'" style="background:#475569; color:white; margin-left:10px">取消</button>
+            <button onclick="document.getElementById('summary-box').style.display='none'" style="background:#475569; color:white; margin-left:10px">返回</button>
         </div>
     </div>
 
@@ -48,24 +48,23 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 角色與 FAB 關聯定義
         const ROLES = [
-            { n:"港產女王", s:"『電子類』佣金 +$1000", bonusType:"電子" },
-            { n:"品質大師", s:"收藏入屋時 LP 額外 +5", bonusType:"收藏" },
-            { n:"格價大叔", s:"入貨成本永久 -$500", bonusType:"成本" },
-            { n:"生活先鋒", s:"『生活類』佣金 +$1000", bonusType:"生活" }
+            { n:"港產女王", s:"『電子類』佣金 +$1000", type:"電子" },
+            { n:"品質大師", s:"收藏入屋時 LP 額外 +5", type:"收藏" },
+            { n:"格價大叔", s:"入貨成本永久 -$500", type:"成本" },
+            { n:"生活先鋒", s:"『生活類』佣金 +$1000", type:"生活" }
         ];
 
         window.initGame = () => {
-            if(!confirm("確定要開啟新的 12 輪人生？")) return;
+            if(!confirm("確定要重設遊戲？所有玩家數據將清空！")) return;
             const shuffledRoles = [...ROLES].sort(() => Math.random() - 0.5);
             set(ref(db, 'game_state'), {
                 round: 1, quarter: 1, inventory: {},
                 players: {
-                    P1: { cash: 10000, role: shuffledRoles[0], totalComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
-                    P2: { cash: 10000, role: shuffledRoles[1], totalComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
-                    P3: { cash: 10000, role: shuffledRoles[2], totalComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
-                    P4: { cash: 10000, role: shuffledRoles[3], totalComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" }
+                    P1: { cash: 10000, role: shuffledRoles[0], totalComm: 0, currentComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
+                    P2: { cash: 10000, role: shuffledRoles[1], totalComm: 0, currentComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
+                    P3: { cash: 10000, role: shuffledRoles[2], totalComm: 0, currentComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" },
+                    P4: { cash: 10000, role: shuffledRoles[3], totalComm: 0, currentComm: 0, lp: 0, inv: [], home: [], idleRounds: 0, lastEvent: "無" }
                 },
                 last_action: { user: "SYS", value: "80年代創業潮開始！" }
             });
@@ -79,16 +78,23 @@
             list.innerHTML = "";
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                // 即時計算 LP: (總佣金/1000) + (家居收藏價值/500)
-                let homeVal = 0; if(p.home) p.home.forEach(i => homeVal += i.p);
-                const currentLP = Math.floor((p.totalComm || 0) / 1000) + Math.floor(homeVal / 500);
+                
+                // LP 計算邏輯
+                let commLP = Math.floor((p.totalComm || 0) / 1000);
+                let homeLP = 0;
+                if(p.home) {
+                    p.home.forEach(() => {
+                        homeLP += (p.role.n === "品質大師" ? 10 : 5);
+                    });
+                }
+                const totalLP = commLP + homeLP;
                 
                 list.innerHTML += `
                     <div class="p-card">
-                        <div class="lp-badge">LP: ${currentLP}</div>
-                        <b>${id} - ${p.role.n}</b> ${p.idleRounds >= 2 ? '<span class="lazy-tag">快將失業</span>' : ''}<br>
+                        <div class="lp-badge">LP: ${totalLP}</div>
+                        <b>${id} - ${p.role.n}</b> ${p.idleRounds >= 2 ? '<span class="lazy-tag">瀕臨失業</span>' : ''}<br>
                         💰 現金: $${p.cash} | 📈 總佣金: $${p.totalComm}<br>
-                        <small>📦 倉庫: ${p.inv?p.inv.length:0} | 🏠 家居收藏: ${p.home?p.home.length:0}</small>
+                        <small>📦 倉庫: ${p.inv?p.inv.length:0} | 🏠 家居: ${p.home?p.home.length:0}</small>
                     </div>`;
             });
 
@@ -100,14 +106,15 @@
             const d = (await get(ref(db, 'game_state'))).val();
             const isQuarterEnd = (d.round % 3 === 0);
             document.getElementById('summary-box').style.display = "block";
-            document.getElementById('summary-desc').innerText = isQuarterEnd ? "🏮 季度末：倉庫剩餘貨物將『轉入手持家居』收藏" : "💡 平日結算：貨物保留";
+            document.getElementById('summary-desc').innerHTML = isQuarterEnd ? 
+                "<b style='color:var(--gold)'>🏮 季度末結算：倉庫剩餘物資將自動「入屋」轉化為 LP！</b>" : 
+                "💡 常規結算：發放底薪並扣除不購買稅。";
 
             let h = `<tr><th>玩家</th><th>底薪</th><th>不購買稅</th><th>本輪佣金</th><th>狀態</th><th>小計</th></tr>`;
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                // 懲罰機制：連續三輪沒進貨/沒賣貨 (idle)
                 let bonus = (p.idleRounds >= 2) ? 0 : 2000;
-                let tax = (!p.inv || p.inv.length === 0) ? 1500 : 0; // 不買稅增加到 1500
+                let tax = (!p.inv || p.inv.length === 0) ? 1500 : 0;
                 if (p.lastEvent === "稅務減免") tax = 0;
 
                 const sub = bonus - tax + (p.currentComm || 0);
@@ -132,9 +139,8 @@
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
                 
-                // 判斷本輪是否有交易 (假設你在 Player 端買賣時會更新一個 lastTradeRound)
-                // 這裡簡化為：如果倉庫沒變動且沒賺佣金，視為閒置
-                let isIdle = (!p.inv || p.inv.length === 0) && (p.currentComm === 0);
+                // 閒置判定 (本輪沒賣出貨物)
+                let isIdle = (p.currentComm === 0);
                 let newIdleRounds = isIdle ? (p.idleRounds + 1) : 0;
                 
                 let bonus = (newIdleRounds >= 3) ? 0 : 2000;
@@ -143,7 +149,7 @@
 
                 let newCash = p.cash + bonus - tax;
                 
-                // 季末：搬貨入屋收藏 (不蝕一半，但貨物變成 LP)
+                // 季末：搬貨入屋
                 if (isQuarterEnd && p.inv && p.inv.length > 0) {
                     const currentHome = p.home || [];
                     up[`game_state/players/${id}/home`] = [...currentHome, ...p.inv];
@@ -152,18 +158,18 @@
 
                 up[`game_state/players/${id}/cash`] = newCash;
                 up[`game_state/players/${id}/idleRounds`] = newIdleRounds;
-                up[`game_state/players/${id}/currentComm`] = 0; // 重置本輪佣金
+                up[`game_state/players/${id}/currentComm`] = 0; 
                 up[`game_state/players/${id}/drawCount`] = 0;
                 up[`game_state/players/${id}/lastEvent`] = "無";
             });
 
             if(isGameEnd) {
-                up[`game_state/last_action`] = { user: "SYSTEM", value: "🏆 12 輪挑戰結束！請計算最終 LP 選出大贏家！" };
+                up[`game_state/last_action`] = { user: "SYSTEM", value: "🏆 時代挑戰結束！請計算最終排名！" };
             } else {
                 up[`game_state/round`] = d.round + 1;
                 up[`game_state/quarter`] = Math.ceil((d.round + 1) / 3);
-                up[`game_state/inventory`] = {}; // 重新開放市場
-                up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成。` };
+                up[`game_state/inventory`] = {}; // 市場重置
+                up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成。16件新貨已上架！` };
             }
 
             await update(ref(db), up);
