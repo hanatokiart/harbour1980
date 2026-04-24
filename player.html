@@ -70,6 +70,20 @@
 
         let gs = {};
         onValue(ref(db, 'game_state'), (snap) => {
+            // 在監聽器內加入：
+const me = gs.players[pId];
+
+// 更新手牌顯示
+document.getElementById('my-hand').innerText = me.hand || "無";
+document.getElementById('use-card-btn').disabled = (!me.hand || me.hand === "無");
+
+// 更新當前生效事件
+document.getElementById('event-active').innerText = me.lastEvent || "無";
+
+// 更新抽卡按鈕狀態
+const remaining = 2 - (me.drawCount || 0);
+document.getElementById('draw-btn').innerText = `📦 抽卡 (${remaining})`;
+document.getElementById('draw-btn').disabled = (remaining <= 0);
             gs = snap.val(); if(!gs) return;
             const me = gs.players[pId];
             document.getElementById('role-display').innerText = `${pId} - ${me.role.n}`;
