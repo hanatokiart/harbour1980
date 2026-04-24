@@ -102,6 +102,51 @@ window.commitAction = function(type, val) {
         alert("出事喇: " + error.message); // 如果失敗會彈原因
     });
 };
+        // 抽卡功能：從 Deck 攞第一張，放入 Hand
+window.drawEvent = function() {
+    const playerRef = ref(db, `game_state/players/${pId}`);
+    const deckRef = ref(db, `game_state/event_deck`);
+
+    // 1. 先拎玩家手牌資料
+    get(playerRef).then((pSnapshot) => {
+        let hand = pSnapshot.val().hand || [];
+        if (hand.length >= 2) return alert("手牌已滿（最多 2 張）！");
+
+        // 2. 再拎卡池資料
+        get(deckRef).then((dSnapshot) => {
+            let deck = dSnapshot.val() || [];
+            if (deck.length === 0) return alert("卡池已經抽晒喇！");
+
+            // 3. 抽走第一張 (shift)
+            const newCard = deck.shift();
+            hand.push(newCard);
+
+            // 4. 更新回 Firebase (同時更新玩家手牌同剩餘卡池)
+            update(playerRef, { hand: hand });
+            set(deckRef, deck); // 更新剩餘卡池
+
+            // 5. 通知大家
+            commitAction('DRAW', `抽到咗：${newCard.n}`);
+        });
+    });
+};
+
+// 使用事件卡功能
+window.useEvent = function(index) {
+    const playerRef = ref(db, `game_state/players/${pId}`);
+    
+    get(playerRef).then((s) => {
+        let hand = s.val().hand || [];
+        const usedCard = hand[index];
+        
+        // 從手牌移除
+        hand.splice(index, 1);
+        update(playerRef, { hand: hand });
+
+        // 觸發效果
+        commitAction('EVENT', `發動：${usedCard.n}！效果：${usedCard.d}`);
+    });
+};
     </script>
 </body>
 </html>
