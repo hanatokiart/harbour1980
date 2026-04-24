@@ -142,5 +142,47 @@ window.confirmSettlement = async () => {
     document.getElementById('summary-box').style.display = 'none';
 };
     </script>
+
+    <button onclick="document.getElementById('rule-book').style.display='block'" 
+        style="position:fixed; bottom:20px; right:20px; background:#f59e0b; padding:15px; border-radius:50%; border:none; cursor:pointer; font-size:1.5rem; z-index:9999;">
+    📖
+</button>
+
+<div id="rule-book" style="display:none; position:fixed; inset:20px; background:#0f172a; border:2px solid #38bdf8; border-radius:15px; padding:20px; overflow-y:auto; z-index:10000; color:white;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="color:#38bdf8; margin:0;">📚 港灣 1980：規則百科</h2>
+        <button onclick="document.getElementById('rule-book').style.display='none'" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✖</button>
+    </div>
+    <hr style="border-color:#334155; margin:15px 0;">
+
+    <h3>🃏 事件卡功能 (詳細版)</h3>
+    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <tr style="background:#1e293b; text-align:left;">
+            <th style="padding:10px; border:1px solid #334155;">卡名</th>
+            <th style="padding:10px; border:1px solid #334155;">具體作用</th>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">政府派錢</td>
+            <td style="padding:10px; border:1px solid #334155;">本輪買家預算加 $2,000，MC 應在買家考慮時放寬成交標準。</td>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">廣告加持</td>
+            <td style="padding:10px; border:1px solid #334155;">只限『手機類』(波士機、全能王、神機、文書機)，成交佣金變 2 倍。</td>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">稅務減免</td>
+            <td style="padding:10px; border:1px solid #334155;">本輪結算時，即使玩家仓库空咗，都唔使扣 $500 稅。</td>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">壞貨退回</td>
+            <td style="padding:10px; border:1px solid #334155;">結算時，手中未賣出嘅貨可以拎返 100% 入貨價 (原本蝕 50%)。</td>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">強制購買</td>
+            <td style="padding:10px; border:1px solid #334155;">推銷完畢後，只要出價低於零售價，買家必買。</td>
+        </tr>
+        <tr>
+            <td style="padding:10px; border:1px solid #334155;">奧客降臨</td>
+            <td style="padding:10px; border:1px
 </body>
 </html>
