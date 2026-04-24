@@ -182,6 +182,83 @@ window.drawCard = async () => {
     }
 };
 
+// 1. 定義 10 張完整事件卡
+const EVENTS_DATA = {
+    "政府派錢": "本輪買家預算加 $2,000，成交機率大增。",
+    "廣告加持": "『手機類』產品本輪佣金雙倍（金級變 $4,000）。",
+    "稅務減免": "本輪結算時，『不購買稅』降至 $0。",
+    "壞貨退回": "結算時，未賣出的貨可退回 100% 按金（唔使蝕一半）。",
+    "強制購買": "推銷後，只要買家夠錢就一定要買，不可拒絕。",
+    "奧客降臨": "買家可瘋狂壓價，賣家本輪不可拒絕任何交易。",
+    "黑市交易": "成交佣金外加 $1,000，但不計入銷售件數。",
+    "連鎖效應": "下一位向同一買家推銷的人，佣金加 $500。",
+    "物流延誤": "本輪所有市場入貨成本（按金）額外增加 $300。",
+    "名牌效應": "推銷「金級」產品時，推銷時間額外加 30 秒。"
+};
+
+// 2. 抽卡函數：抽了之後先存放在手牌
+window.drawCard = async () => {
+    if (gs.players[pId].drawCount >= 2) return alert("每輪限抽 2 張！");
+    if (!gs.event_deck || gs.event_deck.length === 0) return alert("牌堆已空！");
+
+    const currentDeck = [...gs.event_deck];
+    const card = currentDeck.shift();
+
+    const updates = {};
+    updates[`game_state/event_deck`] = currentDeck;
+    updates[`game_state/players/${pId}/hand`] = card.n; // 存入手牌槽
+    updates[`game_state/players/${pId}/drawCount`] = gs.players[pId].drawCount + 1;
+    
+    await update(ref(db), updates);
+    alert(`抽到：【${card.n}】\n已放入手牌，你可以隨時點擊使用。`);
+};
+
+// 3. 使用卡片函數：使用後觸發全域廣播並移除手牌
+window.useCard = async () => {
+    const me = gs.players[pId];
+    if (!me.hand || me.hand === "無") return alert("你手上冇卡喎！");
+
+    const cardName = me.hand;
+    const cardDesc = EVENTS_DATA[cardName];
+
+    if (!confirm(`確定要現在使用【${cardName}】嗎？`)) return;
+
+    const updates = {};
+    updates[`game_state/players/${pId}/hand`] = "無"; // 使用後移除手牌
+    updates[`game_state/players/${pId}/lastEvent`] = cardName; // 顯示在當前生效
+    updates[`game_state/last_action`] = {
+        user: pId,
+        type: "SKILL",
+        value: `🔥 使用了事件卡：${cardName}`,
+        detail: cardDesc
+    };
+
+    await update(ref(db), updates);
+    alert(`已發動：${cardName}！`);
+};
+
+        <div class="section" style="border: 2px solid #38bdf8; background: #1e293b;">
+    <h5 style="margin:0; color:#38bdf8;">🃏 事件卡系統</h5>
+    
+    <div style="margin-top:10px; padding:10px; background:#0f172a; border-radius:8px;">
+        <small style="color:#94a3b8">我的手牌 (待使用)：</small>
+        <div id="my-hand" style="font-weight:bold; font-size:1.1rem; margin:5px 0;">無</div>
+        <button class="btn" id="use-card-btn" onclick="useCard()" style="background:#f59e0b; color:#020617; font-size:0.8rem; padding:5px;">⚡ 立即使用卡片</button>
+    </div>
+
+    <hr style="border:0; border-top:1px solid #334155; margin:10px 0;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn" id="draw-btn" onclick="drawCard()" style="width:60%; background:#22c55e; color:#020617;">📦 抽事件卡</button>
+        <div style="text-align:right">
+            <small style="color:#94a3b8">生效中：</small><br>
+            <span id="event-active" style="color:#38bdf8; font-weight:bold;">無</span>
+        </div>
+    </div>
+</div>
+
+            
+        
         <div class="section">
     <h5 style="margin:0">🃏 當前生效事件：<span id="event-name" style="color:#38bdf8">載入中...</span></h5>
     <button class="btn" id="draw-btn" onclick="drawCard()">📦 抽事件卡 (本輪剩餘次數)</button>
