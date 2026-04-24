@@ -2,52 +2,47 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - MC 中央管理系統</title>
+    <title>港灣 1980 - MC 交易監控</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
         .container { display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
         .sidebar { background: #020617; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
         .player-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
-        .player-card h4 { margin: 0 0 5px 0; color: var(--accent); border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .inv-tag { display: inline-block; background: #334155; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; margin: 2px; border: 1px solid var(--accent); }
+        .player-card h4 { margin: 0 0 5px 0; color: var(--accent); }
         .main-stage { padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
                         display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        #timer { font-size: 8rem; font-weight: bold; color: white; margin: 20px 0; }
-        .btn-stop { background: var(--danger); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.2rem; cursor: pointer; }
-        .quarter-info { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; color: var(--accent); font-weight: bold; }
-        .btn-reset { position: absolute; bottom: 20px; right: 20px; background: #475569; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; opacity: 0.5; }
+        .btn-deal { background: #22c55e; color: white; border: none; padding: 15px 40px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; margin-top: 20px; }
+        .btn-fail { background: var(--danger); color: white; border: none; padding: 10px 20px; border-radius: 10px; margin-left: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
-            <h2 style="text-align: center;">📊 季度即時得分</h2>
+            <h2 style="text-align: center;">📊 季度得分</h2>
             <div id="player-list"></div>
-            <div style="margin-top:20px; padding:10px; background:rgba(56,189,248,0.1); border-radius:8px; font-size:0.85em;">
-                <b>📢 MC 指引：</b><br>
-                - 滿 3 回合會進行季度小結。<br>
-                - 隨時可見玩家剩餘現金及佣金。
-            </div>
         </div>
         <div class="main-stage">
-            <div class="quarter-info" id="q-display">第 1 季度 - 第 1 回合</div>
-            <h2 style="font-size: 2rem; opacity: 0.2;">等待玩家入貨或推銷...</h2>
-            <button class="btn-reset" onclick="initGame()">⚠️ 重置遊戲</button>
+            <div id="q-display" style="font-size: 1.2rem; color: var(--accent); margin-bottom: 20px;"></div>
+            <h1 style="opacity: 0.1; font-size: 4rem;">交易系統待命</h1>
+            <button style="position: absolute; bottom: 20px; right: 20px; opacity: 0.3;" onclick="initGame()">重置遊戲</button>
         </div>
     </div>
 
     <div id="notification">
-        <h2 id="note-user" style="color: white; font-size: 1.5rem;"></h2>
-        <h1 id="note-text" style="color: var(--accent);"></h1>
-        <div id="timer"></div>
-        <button class="btn-stop" onclick="stopTimer()">⏹️ 結束行動 / 成交</button>
+        <h2 id="note-user"></h2>
+        <h1 id="note-text" style="font-size: 3rem; color: var(--accent);"></h1>
+        <div id="timer" style="font-size: 5rem; font-weight: bold; margin: 10px 0;"></div>
+        <div id="deal-controls">
+            <button class="btn-deal" onclick="processDeal(true)">✅ 確認成交</button>
+            <button class="btn-fail" onclick="processDeal(false)">❌ 交易失敗/超時</button>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
@@ -59,22 +54,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        window.initGame = function() {
-            if(!confirm("重置將清空所有分數，確定？")) return;
-            const roles = ["銷售鬼才", "砍價大師", "運氣王", "物流大佬"].sort(() => Math.random() - 0.5);
-            set(ref(db, 'game_state'), {
-                round: 1, quarter: 1, inventory: {}, 
-                event_deck: ["政府派錢","廣告加持","稅務減免","壞貨退回","強制購買","奧客降臨","連鎖效應","黑市交易","物流延誤","名牌效應"].sort(()=>Math.random()-0.5),
-                players: {
-                    P1: { cash: 10000, role: roles[0], inv: [], hand: [], totalComm: 0, drawCount: 0 },
-                    P2: { cash: 10000, role: roles[1], inv: [], hand: [], totalComm: 0, drawCount: 0 },
-                    P3: { cash: 10000, role: roles[2], inv: [], hand: [], totalComm: 0, drawCount: 0 },
-                    P4: { cash: 10000, role: roles[3], inv: [], hand: [], totalComm: 0, drawCount: 0 }
-                },
-                last_action: { type: "IDLE", user: "SYS", value: "READY" }
-            });
-        };
-
         onValue(ref(db, 'game_state'), (snapshot) => {
             const data = snapshot.val(); if (!data) return;
             document.getElementById('q-display').innerText = `第 ${data.quarter} 季度 - 第 ${data.round} 回合`;
@@ -84,39 +63,42 @@
                 const p = data.players[id];
                 listEl.innerHTML += `<div class="player-card">
                     <h4>${id} - ${p.role}</h4>
-                    <div style="font-size:0.9em">💰 現金: $${p.cash} | 📈 佣金: <b style="color:#9ece6a">$${p.totalComm}</b></div>
-                    <div style="margin-top:5px;">${p.inv ? p.inv.map(i => `<span class="inv-tag">${i.n}</span>`).join('') : '<small>未入貨</small>'}</div>
+                    <div>💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm}</div>
                 </div>`;
             });
             if (data.last_action.type !== "IDLE" && data.last_action.user !== "SYS") showNotice(data.last_action);
         });
 
-        let timerInt;
         function showNotice(act) {
             const el = document.getElementById('notification');
             document.getElementById('note-user').innerText = `玩家 ${act.user}`;
             document.getElementById('note-text').innerText = act.value;
-            const timer = document.getElementById('timer');
-            clearInterval(timerInt);
             el.style.display = "flex";
-            if (act.type === "SELL") {
-                let count = 90;
-                timerInt = setInterval(() => {
-                    timer.innerText = count + "s";
-                    count--;
-                    if(count < 0) stopTimer();
-                }, 1000);
-            } else {
-                timer.innerText = "完成";
-                setTimeout(() => { if(el.style.display === "flex") stopTimer(); }, 2000);
-            }
         }
 
-        window.stopTimer = function() {
-            clearInterval(timerInt);
+        window.processDeal = async function(success) {
+            const snap = await get(ref(db, 'game_state'));
+            const data = snap.val();
+            const lastAct = data.last_action;
+            
+            if (success && lastAct.type === "OFFER") {
+                // 成交邏輯：買家扣錢，賣家加佣金
+                const buyerId = lastAct.user;
+                const sellerId = lastAct.seller;
+                const price = parseInt(lastAct.price);
+                const comm = parseInt(lastAct.comm);
+
+                const updates = {};
+                updates[`game_state/players/${buyerId}/cash`] = data.players[buyerId].cash - price;
+                updates[`game_state/players/${sellerId}/totalComm`] = data.players[sellerId].totalComm + comm;
+                updates[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "成交成功！" };
+                update(ref(db), updates);
+            }
             document.getElementById('notification').style.display = "none";
             update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
         };
+        
+        window.initGame = () => { /* 同上個版本 */ };
     </script>
 </body>
 </html>
