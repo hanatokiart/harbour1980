@@ -20,7 +20,7 @@
     <div class="sidebar">
         <h2 style="color:var(--accent)">📊 玩家數據</h2>
         <div id="player-display"></div>
-        <button onclick="initGame()" style="width:100%; background:var(--lose); color:white; margin-top:10px">🔄 初始化遊戲</button>
+        <button onclick="initGame()" style="width:100%; background:var(--lose); color:white; margin-top:10px">🔄 初始化遊戲 (12輪制)</button>
     </div>
     <div class="main">
         <h2 id="round-info">載入中...</h2>
@@ -30,9 +30,10 @@
 
     <div id="summary-box" class="summary-box">
         <h2 style="text-align:center; color:var(--win)">💰 回合結算清單</h2>
+        <div id="summary-desc" style="text-align:center; margin-bottom:10px; color:#94a3b8"></div>
         <table id="summary-table"></table>
         <div style="margin-top:20px; text-align:center">
-            <button onclick="confirmSettlement()" style="background:var(--win); color:white; font-size:1.1rem">✅ 發放薪金並進入下一輪</button>
+            <button id="confirm-btn" onclick="confirmSettlement()" style="background:var(--win); color:white; font-size:1.1rem">✅ 發放薪金並進入下一輪</button>
             <button onclick="document.getElementById('summary-box').style.display='none'" style="background:#475569; color:white; margin-left:10px">取消</button>
         </div>
     </div>
@@ -45,199 +46,143 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-const EVENTS = [
-    { n: "政府派錢", d: "本輪買家預算加 $2,000，成交機率大增。" },
-    { n: "廣告加持", d: "『手機類』產品本輪佣金雙倍（金級變 $4,000）。" },
-    { n: "稅務減免", d: "本輪結算時，『不購買稅』降至 $0。" },
-    { n: "壞貨退回", d: "結算時，未賣出的貨可退回 100% 按金（唔使蝕一半）。" },
-    { n: "強制購買", d: "推銷後，只要買家夠錢就一定要買，不可拒絕。" },
-    { n: "奧客降臨", d: "買家可瘋狂壓價，賣家本輪不可拒絕任何交易。" },
-    { n: "黑市交易", d: "成交佣金外加 $1,000，但不計入銷售件數。" },
-    { n: "連鎖效應", d: "下一位向同一買家推銷的人，佣金加 $500。" },
-    { n: "物流延誤", d: "本輪所有市場入貨成本（按金）額外增加 $300。" },
-    { n: "名牌效應", d: "推銷「金級」產品時，推銷時間額外加 30 秒。" }
-];
+        const EVENTS = [
+            { n: "政府派錢", d: "本輪買家預算加 $2,000，成交機率大增。" },
+            { n: "廣告加持", d: "『手機類』產品本輪佣金雙倍。" },
+            { n: "稅務減免", d: "本輪結算時，『不購買稅』降至 $0。" },
+            { n: "壞貨退回", d: "結算時，未賣出的貨可退回 100% 按金。" },
+            { n: "強制購買", d: "推銷後，買家必買。" },
+            { n: "奧客降臨", d: "買家可瘋狂壓價，本輪不可拒絕。" },
+            { n: "黑市交易", d: "成交佣金外加 $1,000。" },
+            { n: "連鎖效應", d: "下一位推銷員佣金加 $500。" },
+            { n: "物流延誤", d: "本輪入貨成本額外增加 $300。" },
+            { n: "名牌效應", d: "金級產品推銷時間加 30 秒。" }
+        ];
 
         window.initGame = () => {
+            if(!confirm("確定要重置遊戲為 12 輪制嗎？")) return;
             const roles = [{n:"港產女王", s:"金級產品佣金+$2000"}, {n:"品質大師", s:"免疫扣分"}, {n:"格價大叔", s:"入貨成本-$500"}, {n:"潮流先鋒", s:"永遠當季"}].sort(()=>Math.random()-0.5);
             set(ref(db, 'game_state'), {
                 round: 1, quarter: 1, inventory: {}, event_deck: EVENTS.sort(()=>Math.random()-0.5),
                 players: {
-                    P1: { cash: 10000, role: roles[0], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" },
-                    P2: { cash: 10000, role: roles[1], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" },
-                    P3: { cash: 10000, role: roles[2], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" },
-                    P4: { cash: 10000, role: roles[3], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" }
+                    P1: { cash: 10000, role: roles[0], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無", hand: "無" },
+                    P2: { cash: 10000, role: roles[1], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無", hand: "無" },
+                    P3: { cash: 10000, role: roles[2], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無", hand: "無" },
+                    P4: { cash: 10000, role: roles[3], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無", hand: "無" }
                 },
-                last_action: { type: "IDLE", user: "SYS", value: "準備開始" }
+                last_action: { type: "IDLE", user: "SYS", value: "遊戲初始化完成 (12輪制)" }
             });
         };
 
         onValue(ref(db, 'game_state'), (snap) => {
             const d = snap.val(); if(!d) return;
-            document.getElementById('round-info').innerText = `第 ${d.quarter} 季 - 第 ${d.round} 輪`;
+            document.getElementById('round-info').innerText = `第 ${d.quarter} 季 - 第 ${d.round} 輪 (總共 12 輪)`;
             const list = document.getElementById('player-display'); list.innerHTML = "";
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                list.innerHTML += `<div class="p-card"><b>${id} - ${p.role.n}</b><br>💰$${p.cash} | 📈$${p.totalComm}<br><small>持貨: ${p.inv? p.inv.length:0}</small></div>`;
+                list.innerHTML += `<div class="p-card"><b>${id} - ${p.role.n}</b><br>💰$${p.cash} | 📈$${p.totalComm}<br><small>庫存: ${p.inv? p.inv.length : 0} | 手牌: ${p.hand || "無"}</small></div>`;
             });
             const log = document.getElementById('log-content');
             log.innerHTML = `<div>[${d.last_action.user}] ${d.last_action.value}</div>` + log.innerHTML;
         });
 
         window.showSummary = async () => {
-            const d = (await get(ref(db, 'game_state'))).val();
+            const snap = await get(ref(db, 'game_state'));
+            const d = snap.val();
+            const isQuarterEnd = (d.round % 3 === 0);
+            
             document.getElementById('summary-box').style.display = "block";
-            let h = `<tr><th>玩家</th><th>底薪</th><th>累積佣金</th><th>不購買稅</th><th>未售損失</th><th>小計</th></tr>`;
+            document.getElementById('summary-desc').innerText = isQuarterEnd ? "🏮 季度末清算：包含強制清倉蝕一半損失" : "💡 平日結算：保留倉庫貨物到下一輪";
+
+            let h = `<tr><th>玩家</th><th>底薪</th><th>本輪佣金</th><th>不購買稅</th><th>${isQuarterEnd ? '清倉損失' : '保留狀態'}</th><th>小計</th></tr>`;
+            
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
-                let loss = 0; if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
-                const sub = 2000 + p.totalComm - tax - loss;
-                h += `<tr><td>${id}</td><td>+$2000</td><td>+$${p.totalComm}</td><td style="color:red">-$${tax}</td><td style="color:red">-$${loss}</td><td><b>$${sub}</b></td></tr>`;
+                // 1. 稅務 (沒貨就扣500)
+                let tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+                if (p.lastEvent === "稅務減免") tax = 0;
+
+                // 2. 損失
+                let loss = 0;
+                if(isQuarterEnd && p.inv) {
+                    p.inv.forEach(i => {
+                        if (p.lastEvent !== "壞貨退回") loss += (i.p * 0.5);
+                    });
+                }
+
+                const sub = 2000 + (p.totalComm || 0) - tax - loss;
+                h += `<tr>
+                    <td>${id}</td>
+                    <td>+$2000</td>
+                    <td>+$${p.totalComm || 0}</td>
+                    <td style="color:${tax>0?'red':'#94a3b8'}">-$${tax}</td>
+                    <td style="color:${loss>0?'red':'#win'}">${isQuarterEnd ? '-$'+loss : '📦 保留'}</td>
+                    <td><b>$${sub}</b></td>
+                </tr>`;
             });
             document.getElementById('summary-table').innerHTML = h;
+            
+            if(d.round >= 12) {
+                document.getElementById('confirm-btn').innerText = "🏆 最終結算，結束遊戲";
+                document.getElementById('confirm-btn').style.background = "gold";
+            } else {
+                document.getElementById('confirm-btn').innerText = "✅ 發放薪金並進入下一輪";
+                document.getElementById('confirm-btn').style.background = "var(--win)";
+            }
         };
 
- // 替換 Tablet.html 內的 confirmSettlement 函數
-window.confirmSettlement = async () => {
-    const d = (await get(ref(db, 'game_state'))).val();
-    const up = {};
-    const pData = d.players;
-    
-    // 判斷係咪季度結束 (第 3 輪)
-    const isQuarterEnd = (d.round === 3);
+        window.confirmSettlement = async () => {
+            const snap = await get(ref(db, 'game_state'));
+            const d = snap.val();
+            const up = {};
+            const isQuarterEnd = (d.round % 3 === 0);
+            const isGameEnd = (d.round >= 12);
 
-    Object.keys(pData).forEach(id => {
-        const p = pData[id];
-        
-        // 1. 底薪：每一輪都有
-        let roundBonus = 2000;
+            Object.keys(d.players).forEach(id => {
+                const p = d.players[id];
+                let tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+                if (p.lastEvent === "稅務減免") tax = 0;
 
-        // 2. 不購買稅：每一輪都要計 (如果嗰輪完咗手上仲係一件貨都冇就扣)
-        let tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
-        if (p.lastEvent === "稅務減免") tax = 0;
+                let loss = 0;
+                if(isQuarterEnd && p.inv) {
+                    p.inv.forEach(i => {
+                        if (p.lastEvent !== "壞貨退回") loss += (i.p * 0.5);
+                    });
+                }
 
-        // 3. 未售損失 (蝕一半)：只有喺季度結束 (第 3 輪) 嗰陣先會觸發
-        let loss = 0;
-        if (isQuarterEnd && p.inv) {
-            p.inv.forEach(i => {
-                if (p.lastEvent !== "壞貨退回") {
-                    loss += (i.p * 0.5); // 季尾清倉蝕一半
+                // 計算新現金 (佣金在成交時已經加過了，這裡只結算底薪、稅和損失)
+                const newCash = p.cash + 2000 - tax - loss;
+                
+                up[`game_state/players/${id}/cash`] = newCash;
+                up[`game_state/players/${id}/totalComm`] = 0; 
+                up[`game_state/players/${id}/drawCount`] = 0; 
+                up[`game_state/players/${id}/lastEvent`] = "無";
+                
+                if (isQuarterEnd) {
+                    up[`game_state/players/${id}/inv`] = []; // 季尾清倉
                 }
             });
-        }
 
-        // 計算新現金
-        const newCash = p.cash + roundBonus - tax - loss;
-        
-        up[`game_state/players/${id}/cash`] = newCash;
-        up[`game_state/players/${id}/totalComm`] = 0; // 每輪佣金紀錄重置
-        up[`game_state/players/${id}/drawCount`] = 0; // 每輪抽卡次數重置
-        up[`game_state/players/${id}/lastEvent`] = "無"; // 每輪生效事件重置
-        up[`game_state/players/${id}/hand`] = p.hand || "無"; 
+            if(isGameEnd) {
+                up[`game_state/last_action`] = { user: "SYSTEM", value: "🏁 12 輪遊戲大結算！請統計最終資產及 AP 選出贏家！" };
+                alert("遊戲已達 12 輪大結局！");
+            } else {
+                let nextR = d.round + 1;
+                let nextQ = Math.ceil(nextR / 3);
+                up[`game_state/round`] = nextR;
+                up[`game_state/quarter`] = nextQ;
+                
+                if (isQuarterEnd) {
+                    up[`game_state/inventory`] = {}; // 季尾釋放貨源
+                    up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.quarter} 季結束，強制清倉完成。` };
+                } else {
+                    up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成，底薪已發放，貨物保留。` };
+                }
+            }
 
-        // --- 核心改動：只有季尾先清空倉庫 ---
-        if (isQuarterEnd) {
-            up[`game_state/players/${id}/inv`] = []; 
-        } else {
-            // 唔係季尾，保留現有貨物到下一輪
-            up[`game_state/players/${id}/inv`] = p.inv || []; 
-        }
-    });
-
-    // 輪次遞進
-    let nextR = d.round + 1;
-    let nextQ = d.quarter;
-    
-    if (nextR > 3) {
-        nextR = 1;
-        nextQ += 1;
-        up[`game_state/last_action`] = { user: "SYSTEM", value: "🏮 季度結束！倉庫已強制清盤蝕半，請頒發 AP。" };
-        up[`game_state/inventory`] = {}; // 季尾先至釋放市場所有貨源
-    } else {
-        up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪完結。貨物已帶到下一輪。` };
-        // 注意：呢度我哋唔清空 gs.inventory，等已經買咗嘅貨唔會喺下一輪重疊出現
-    }
-
-    up[`game_state/round`] = nextR;
-    up[`game_state/quarter`] = nextQ;
-
-    await update(ref(db), up);
-    document.getElementById('summary-box').style.display = 'none';
-};
-        
-        // 核心公式：玩家現金(已經包含成交回本) + 底薪($2000) - 稅 - 蝕一半
-        // 注意：totalComm 只係顯示用，實際錢喺成交嗰下已經加咗入 cash
-        const newCash = p.cash + 2000 - tax - loss;
-        
-        up[`game_state/players/${id}/cash`] = newCash;
-        up[`game_state/players/${id}/totalComm`] = 0; 
-        up[`game_state/players/${id}/inv`] = [];      
-        up[`game_state/players/${id}/drawCount`] = 0; 
-        up[`game_state/players/${id}/lastEvent`] = "無"; 
-        up[`game_state/players/${id}/hand`] = p.hand || "無"; 
-    });
-
-    // 輪次遞進邏輯...
-    let nextR = d.round + 1;
-    let nextQ = d.quarter;
-    if (nextR > 3) {
-        nextR = 1;
-        nextQ += 1;
-        up[`game_state/last_action`] = { user: "SYSTEM", value: "🌟 季度結束！請頒發 AP。" };
-    } else {
-        up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成。` };
-    }
-
-    up[`game_state/round`] = nextR;
-    up[`game_state/quarter`] = nextQ;
-    up[`game_state/inventory`] = {}; 
-
-    await update(ref(db), up);
-    document.getElementById('summary-box').style.display = 'none';
-};
+            await update(ref(db), up);
+            document.getElementById('summary-box').style.display = 'none';
+        };
     </script>
-
-    <button onclick="document.getElementById('rule-book').style.display='block'" 
-        style="position:fixed; bottom:20px; right:20px; background:#f59e0b; padding:15px; border-radius:50%; border:none; cursor:pointer; font-size:1.5rem; z-index:9999;">
-    📖
-</button>
-
-<div id="rule-book" style="display:none; position:fixed; inset:20px; background:#0f172a; border:2px solid #38bdf8; border-radius:15px; padding:20px; overflow-y:auto; z-index:10000; color:white;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="color:#38bdf8; margin:0;">📚 港灣 1980：規則百科</h2>
-        <button onclick="document.getElementById('rule-book').style.display='none'" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✖</button>
-    </div>
-    <hr style="border-color:#334155; margin:15px 0;">
-
-    <h3>🃏 事件卡功能 (詳細版)</h3>
-    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <tr style="background:#1e293b; text-align:left;">
-            <th style="padding:10px; border:1px solid #334155;">卡名</th>
-            <th style="padding:10px; border:1px solid #334155;">具體作用</th>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">政府派錢</td>
-            <td style="padding:10px; border:1px solid #334155;">本輪買家預算加 $2,000，MC 應在買家考慮時放寬成交標準。</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">廣告加持</td>
-            <td style="padding:10px; border:1px solid #334155;">只限『手機類』(波士機、全能王、神機、文書機)，成交佣金變 2 倍。</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">稅務減免</td>
-            <td style="padding:10px; border:1px solid #334155;">本輪結算時，即使玩家仓库空咗，都唔使扣 $500 稅。</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">壞貨退回</td>
-            <td style="padding:10px; border:1px solid #334155;">結算時，手中未賣出嘅貨可以拎返 100% 入貨價 (原本蝕 50%)。</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">強制購買</td>
-            <td style="padding:10px; border:1px solid #334155;">推銷完畢後，只要出價低於零售價，買家必買。</td>
-        </tr>
-        <tr>
-            <td style="padding:10px; border:1px solid #334155;">奧客降臨</td>
-            <td style="padding:10px; border:1px
 </body>
 </html>
