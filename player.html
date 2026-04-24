@@ -181,6 +181,21 @@ window.drawCard = async () => {
         alert("網絡不穩，抽卡失敗，請重試。");
     }
 };
+
+        <div class="section">
+    <h5 style="margin:0">🃏 當前生效事件：<span id="event-name" style="color:#38bdf8">載入中...</span></h5>
+    <button class="btn" id="draw-btn" onclick="drawCard()">📦 抽事件卡 (本輪剩餘次數)</button>
+</div>
+
+<script>
+    // 在 onValue 監聽器入面加返呢句更新 UI
+    document.getElementById('event-name').innerText = me.lastEvent || "無 (請抽卡)";
+    
+    // 顯示剩餘次數 (Optional 但好實用)
+    const remaining = 2 - me.drawCount;
+    document.getElementById('draw-btn').innerText = `📦 抽事件卡 (剩餘 ${remaining} 次)`;
+    document.getElementById('draw-btn').disabled = (remaining <= 0);
+</script>
     </script>
 </body>
 </html>
