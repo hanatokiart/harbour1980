@@ -2,103 +2,121 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - MC 交易監控</title>
+    <title>港灣 1980 - MC 中央控制台</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --danger: #ef4444; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow: hidden; }
-        .container { display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
-        .sidebar { background: #020617; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
-        .player-card { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid #334155; }
-        .player-card h4 { margin: 0 0 5px 0; color: var(--accent); }
-        .main-stage { padding: 30px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #notification { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
-                        display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        .btn-deal { background: #22c55e; color: white; border: none; padding: 15px 40px; border-radius: 10px; font-size: 1.5rem; cursor: pointer; margin-top: 20px; }
-        .btn-fail { background: var(--danger); color: white; border: none; padding: 10px 20px; border-radius: 10px; margin-left: 10px; cursor: pointer; }
+        :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --lose: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
+        .sidebar { background: #0f172a; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
+        .p-card { background: var(--card); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 5px solid var(--accent); }
+        .p-card h4 { margin: 0; color: var(--accent); display: flex; justify-content: space-between; }
+        .main { padding: 40px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #full-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .btn-group { margin-top: 30px; display: flex; gap: 20px; }
+        button { cursor: pointer; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; }
+        .btn-confirm { background: var(--win); color: white; font-size: 1.5rem; }
+        .btn-cancel { background: var(--lose); color: white; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <h2 style="text-align: center;">📊 季度得分</h2>
-            <div id="player-list"></div>
-        </div>
-        <div class="main-stage">
-            <div id="q-display" style="font-size: 1.2rem; color: var(--accent); margin-bottom: 20px;"></div>
-            <h1 style="opacity: 0.1; font-size: 4rem;">交易系統待命</h1>
-            <button style="position: absolute; bottom: 20px; right: 20px; opacity: 0.3;" onclick="initGame()">重置遊戲</button>
+    <div class="sidebar">
+        <h2 style="text-align:center">📈 賽季實時數據</h2>
+        <div id="player-display"></div>
+        <div style="margin-top:20px; font-size:0.8em; color:#94a3b8; background:#1e293b; padding:10px; border-radius:8px">
+            <b>🏆 季末成就點 (AP) 規則：</b><br>
+            現金最多: +3 AP | 賣貨最多: +3 AP<br>
+            FAB 推銷獎: +2 AP | 推銷最差: -1 AP
         </div>
     </div>
+    <div class="main">
+        <div id="game-info" style="font-size:1.5rem; margin-bottom:20px">第 1 季度 | 第 1 回合</div>
+        <h1 style="opacity:0.2; font-size:4rem">等待交易...</h1>
+        <button onclick="initGame()" style="position:absolute; bottom:20px; right:20px; opacity:0.3">重置系統</button>
+    </div>
 
-    <div id="notification">
-        <h2 id="note-user"></h2>
-        <h1 id="note-text" style="font-size: 3rem; color: var(--accent);"></h1>
-        <div id="timer" style="font-size: 5rem; font-weight: bold; margin: 10px 0;"></div>
-        <div id="deal-controls">
-            <button class="btn-deal" onclick="processDeal(true)">✅ 確認成交</button>
-            <button class="btn-fail" onclick="processDeal(false)">❌ 交易失敗/超時</button>
+    <div id="full-screen">
+        <h2 id="act-user" style="color:var(--accent)"></h2>
+        <h1 id="act-msg" style="font-size:3rem"></h1>
+        <div id="act-detail" style="font-size:1.5rem; margin:20px 0"></div>
+        <div class="btn-group" id="deal-btns" style="display:none">
+            <button class="btn-confirm" onclick="deal(true)">✅ 成交 (更新數據)</button>
+            <button class="btn-cancel" onclick="deal(false)">❌ 拒絕/取消</button>
         </div>
+        <button id="close-btn" class="btn-cancel" onclick="closeScreen()" style="margin-top:20px">關閉視窗</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
-            authDomain: "harbour1980-bac14.firebaseapp.com",
-            databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com",
-            projectId: "harbour1980-bac14",
-            appId: "1:1010384901946:web:302f99b7565aa9063aa203"
-        };
+        const firebaseConfig = { apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI", authDomain: "harbour1980-bac14.firebaseapp.com", databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com", projectId: "harbour1980-bac14", appId: "1:1010384901946:web:302f99b7565aa9063aa203" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        onValue(ref(db, 'game_state'), (snapshot) => {
-            const data = snapshot.val(); if (!data) return;
-            document.getElementById('q-display').innerText = `第 ${data.quarter} 季度 - 第 ${data.round} 回合`;
-            const listEl = document.getElementById('player-list');
-            listEl.innerHTML = "";
-            Object.keys(data.players).forEach(id => {
-                const p = data.players[id];
-                listEl.innerHTML += `<div class="player-card">
-                    <h4>${id} - ${p.role}</h4>
-                    <div>💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm}</div>
+        window.initGame = () => {
+            if(!confirm("重置數據？")) return;
+            const roles = [
+                {n:"港產女王", s:"金級佣金+$2000"}, {n:"品質大師", s:"免疫推銷扣分"},
+                {n:"格價大叔", s:"入貨成本-$500"}, {n:"潮流先鋒", s:"無視換季扣分"}
+            ].sort(()=>Math.random()-0.5);
+            set(ref(db, 'game_state'), {
+                round: 1, quarter: 1, inventory: {},
+                players: {
+                    P1: { cash: 10000, role: roles[0], inv: [], totalComm: 0, ap: 0 },
+                    P2: { cash: 10000, role: roles[1], inv: [], totalComm: 0, ap: 0 },
+                    P3: { cash: 10000, role: roles[2], inv: [], totalComm: 0, ap: 0 },
+                    P4: { cash: 10000, role: roles[3], inv: [], totalComm: 0, ap: 0 }
+                },
+                last_action: { type: "IDLE", user: "SYS", value: "READY" }
+            });
+        };
+
+        onValue(ref(db, 'game_state'), (snap) => {
+            const d = snap.val(); if(!d) return;
+            document.getElementById('game-info').innerText = `第 ${d.quarter} 季度 | 第 ${d.round} 回合`;
+            const list = document.getElementById('player-display');
+            list.innerHTML = "";
+            Object.keys(d.players).forEach(id => {
+                const p = d.players[id];
+                list.innerHTML += `<div class="p-card">
+                    <h4>${id} - ${p.role.n} <span>AP: ${p.ap}</span></h4>
+                    <div style="font-size:0.9em; margin-top:5px">💰 現金: $${p.cash} | 📈 佣金: $${p.totalComm}</div>
+                    <div style="color:#94a3b8; font-size:0.75em">技能: ${p.role.s}</div>
                 </div>`;
             });
-            if (data.last_action.type !== "IDLE" && data.last_action.user !== "SYS") showNotice(data.last_action);
+            if(d.last_action.type !== "IDLE") showAct(d.last_action);
         });
 
-        function showNotice(act) {
-            const el = document.getElementById('notification');
-            document.getElementById('note-user').innerText = `玩家 ${act.user}`;
-            document.getElementById('note-text').innerText = act.value;
-            el.style.display = "flex";
+        function showAct(act) {
+            const fs = document.getElementById('full-screen');
+            document.getElementById('act-user').innerText = `玩家 ${act.user}`;
+            document.getElementById('act-msg').innerText = act.type === "SELL" ? "📢 正在推銷產品！" : act.value;
+            document.getElementById('deal-btns').style.display = act.type === "OFFER" ? "flex" : "none";
+            fs.style.display = "flex";
         }
 
-        window.processDeal = async function(success) {
-            const snap = await get(ref(db, 'game_state'));
-            const data = snap.val();
-            const lastAct = data.last_action;
-            
-            if (success && lastAct.type === "OFFER") {
-                // 成交邏輯：買家扣錢，賣家加佣金
-                const buyerId = lastAct.user;
-                const sellerId = lastAct.seller;
-                const price = parseInt(lastAct.price);
-                const comm = parseInt(lastAct.comm);
+        window.deal = async (ok) => {
+            if(ok) {
+                const snap = await get(ref(db, 'game_state'));
+                const d = snap.val();
+                const act = d.last_action;
+                const buyer = d.players[act.user];
+                const seller = d.players[act.seller];
+                const price = parseInt(act.price);
+                const comm = parseInt(act.comm);
 
-                const updates = {};
-                updates[`game_state/players/${buyerId}/cash`] = data.players[buyerId].cash - price;
-                updates[`game_state/players/${sellerId}/totalComm`] = data.players[sellerId].totalComm + comm;
-                updates[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "成交成功！" };
-                update(ref(db), updates);
+                const up = {};
+                up[`game_state/players/${act.user}/cash`] = buyer.cash - price;
+                up[`game_state/players/${act.seller}/totalComm`] = seller.totalComm + comm;
+                up[`game_state/last_action`] = { type: "IDLE", user: "SYS", value: "交易達成！" };
+                update(ref(db), up);
             }
-            document.getElementById('notification').style.display = "none";
+            closeScreen();
+        };
+
+        window.closeScreen = () => {
+            document.getElementById('full-screen').style.display = "none";
             update(ref(db, 'game_state/last_action'), { type: "IDLE", user: "SYS" });
         };
-        
-        window.initGame = () => { /* 同上個版本 */ };
     </script>
 </body>
 </html>
