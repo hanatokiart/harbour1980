@@ -2,43 +2,36 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>港灣 1980 - MC 中央控制台</title>
+    <title>港灣 1980 - MC 結算控制台</title>
     <style>
-        :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --lose: #ef4444; --warn: #e0af68; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 380px 1fr; height: 100vh; overflow: hidden; }
-        .sidebar { background: #0f172a; padding: 20px; border-right: 1px solid #334155; overflow-y: auto; }
-        .p-card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 5px solid var(--accent); }
-        .main { padding: 30px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
-        #log-screen { flex: 1; background: #0f172a; border-radius: 12px; padding: 20px; border: 1px solid #334155; overflow-y: auto; margin-bottom: 20px; }
-        .log-entry { padding: 10px; border-bottom: 1px solid #1e293b; font-size: 0.95rem; line-height: 1.5; }
-        .log-OFFER { color: var(--warn); border-left: 3px solid var(--warn); padding-left: 10px; }
-        .log-DONE { color: var(--win); border-left: 3px solid var(--win); padding-left: 10px; }
-        .summary-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; }
-        .summary-table th, .summary-table td { padding: 15px; border: 1px solid #334155; text-align: center; }
-        button { cursor: pointer; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; background: var(--accent); color: #020617; transition: 0.3s; }
-        button:hover { opacity: 0.8; }
+        :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --win: #22c55e; --lose: #ef4444; }
+        body { font-family: system-ui; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
+        .sidebar { background: #0f172a; padding: 20px; border-right: 1px solid #334155; }
+        .p-card { background: var(--card); padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid var(--accent); }
+        .main { padding: 30px; overflow-y: auto; }
+        #log-screen { background: #000; height: 300px; overflow-y: auto; padding: 15px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 20px; color: #9ece6a; font-family: monospace; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #334155; text-align: center; }
+        .btn { cursor: pointer; padding: 10px 20px; border-radius: 8px; border: none; font-weight: bold; background: var(--accent); }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2 style="text-align:center; color:var(--accent)">📊 全局數據</h2>
+        <h2 style="color:var(--accent)">📊 玩家狀態</h2>
         <div id="player-display"></div>
-        <button onclick="initGame()" style="width:100%; background:var(--lose); color:white; margin-top:10px">🔄 初始化/重置遊戲</button>
+        <button onclick="initGame()" style="background:var(--lose); color:white; width:100%; padding:10px; border-radius:5px">🔄 重置遊戲數據</button>
     </div>
     <div class="main">
-        <div style="display:flex; justify-content:space-between; align-items:center">
-            <h2 id="round-info" style="color:var(--accent); margin:0">載入中...</h2>
-            <button onclick="showSummary()">🏁 季度結算</button>
-        </div>
+        <h2 id="round-info">載入中...</h2>
         <div id="log-screen"><div id="log-content"></div></div>
-        <div id="summary-area" style="display:none; position:fixed; inset:50px; background:var(--bg); border:2px solid var(--accent); padding:30px; z-index:100; border-radius:20px;">
-            <h2 style="color:var(--win); text-align:center">季度銷售結算表</h2>
-            <table class="summary-table" id="summary-body"></table>
-            <div style="text-align:center; margin-top:30px">
-                <button onclick="nextRound()" style="font-size:1.2rem">進入下一階段</button>
-                <button onclick="document.getElementById('summary-area').style.display='none'" style="background:#475569; color:white; margin-left:20px">返回監控</button>
-            </div>
+        
+        <div id="summary-area" style="display:none">
+            <h3 style="color:var(--win)">🏁 本回合結算清單 (薪金/稅務/損益)</h3>
+            <table id="summary-table"></table>
+            <button class="btn" style="margin-top:20px; width:100%; height:50px" onclick="processFinalSettlement()">💰 確認結算並發放薪金 (進入下一輪)</button>
         </div>
+        
+        <button class="btn" style="position:fixed; bottom:20px; right:20px" onclick="showSummary()">📊 準備回合結算</button>
     </div>
 
     <script type="module">
@@ -50,20 +43,13 @@
         const db = getDatabase(app);
 
         const EVENTS = [
-            {n:"政府派錢", d:"本輪買家預算加 $2,000。"}, {n:"廣告加持", d:"『手機類』佣金雙倍！"},
-            {n:"稅務減免", d:"『不購買稅』(罰款) 降至 $0。"}, {n:"壞貨退回", d:"未賣出的貨，可退回 100% 按金。"},
-            {n:"強制購買", d:"除非錢唔夠，否則必須成交。"}, {n:"奧客降臨", d:"買家可瘋狂壓價，賣家不可拒絕。"},
-            {n:"黑市交易", d:"本輪成交不計張數，但佣金加 $1,000。"}, {n:"連鎖效應", d:"下一位向同一買家推銷，佣金 +$500。"},
-            {n:"物流延誤", d:"本輪所有入貨成本增加 $300。"}, {n:"名牌效應", d:"金級產品推銷時間增加 30 秒。"}
+            {n:"政府派錢", d:"本輪買家預算加 $2000"}, {n:"廣告加持", d:"手機類佣金雙倍"}, {n:"稅務減免", d:"不購買稅歸0"}, 
+            {n:"壞貨退回", d:"未賣出貨品退回100%按金"}, {n:"強制購買", d:"推銷後買家必買"}, {n:"奧客降臨", d:"買家可無限壓價"}, 
+            {n:"黑市交易", d:"不計張數佣金+$1000"}, {n:"連鎖效應", d:"下一位推銷同買家+$500"}, {n:"物流延誤", d:"入貨成本+$300"}, {n:"名牌效應", d:"金級推銷加30秒"}
         ].sort(()=>Math.random()-0.5);
 
         window.initGame = () => {
-            const roles = [
-                {n:"港產女王", s:"賣出『金級』產品，佣金外加 +$2,000"},
-                {n:"品質大師", s:"免疫任何『神秘顧客』導致的扣分"},
-                {n:"格價大叔", s:"每次入貨成本自動 -$500"},
-                {n:"潮流先鋒", s:"無視換季，貨品永遠視為當季"}
-            ].sort(()=>Math.random()-0.5);
+            const roles = [{n:"港產女王", s:"金級產品佣金+$2000"}, {n:"品質大師", s:"免疫扣分"}, {n:"格價大叔", s:"入貨成本-$500"}, {n:"潮流先鋒", s:"永遠當季"}].sort(()=>Math.random()-0.5);
             set(ref(db, 'game_state'), {
                 round: 1, quarter: 1, inventory: {}, event_deck: EVENTS,
                 players: {
@@ -72,7 +58,7 @@
                     P3: { cash: 10000, role: roles[2], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" },
                     P4: { cash: 10000, role: roles[3], totalComm: 0, drawCount: 0, inv: [], lastEvent: "無" }
                 },
-                last_action: { type: "IDLE", user: "SYS", value: "遊戲已準備就緒" }
+                last_action: { type: "IDLE", user: "SYS", value: "遊戲初始化成功" }
             });
         };
 
@@ -82,27 +68,45 @@
             const list = document.getElementById('player-display'); list.innerHTML = "";
             Object.keys(d.players).forEach(id => {
                 const p = d.players[id];
-                list.innerHTML += `<div class="p-card"><b>${id} - ${p.role.n}</b><br><small style="color:#94a3b8">${p.role.s}</small><br><div style="margin-top:5px">💰 $${p.cash} | 📈 $${p.totalComm}</div></div>`;
+                list.innerHTML += `<div class="p-card"><b>${id} (${p.role.n})</b><br>💰$${p.cash} | 📈$${p.totalComm}<br><small>持貨: ${p.inv? p.inv.length : 0} 件</small></div>`;
             });
-            const logContent = document.getElementById('log-content');
-            const entry = `<div class="log-entry log-${d.last_action.type}"><b>[${d.last_action.user}]</b> ${d.last_action.value} ${d.last_action.detail? '<br><small>'+d.last_action.detail+'</small>':''}</div>`;
-            logContent.innerHTML = entry + logContent.innerHTML;
+            const log = document.getElementById('log-content');
+            log.innerHTML = `<div>[${d.last_action.user}] ${d.last_action.value}</div>` + log.innerHTML;
         });
 
         window.showSummary = async () => {
             const d = (await get(ref(db, 'game_state'))).val();
             document.getElementById('summary-area').style.display = "block";
-            let h = `<tr><th>玩家</th><th>角色</th><th>現金額</th><th>本季佣金</th></tr>`;
+            let h = `<tr><th>玩家</th><th>底薪</th><th>累積佣金</th><th>不購買稅</th><th>未售按金損失</th><th>預計應得</th></tr>`;
             Object.keys(d.players).forEach(id => {
-                h += `<tr><td>${id}</td><td>${d.players[id].role.n}</td><td>$${d.players[id].cash}</td><td>$${d.players[id].totalComm}</td></tr>`;
+                const p = d.players[id];
+                const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+                let loss = 0; if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
+                const total = 2000 + p.totalComm - tax - loss;
+                h += `<tr><td>${id}</td><td>+$2000</td><td>+$${p.totalComm}</td><td style="color:red">-$${tax}</td><td style="color:red">-$${loss}</td><td><b>$${total}</b></td></tr>`;
             });
-            document.getElementById('summary-body').innerHTML = h;
+            document.getElementById('summary-table').innerHTML = h;
         };
 
-        window.nextRound = async () => {
+        window.processFinalSettlement = async () => {
+            if(!confirm("確定要進行結算並發放薪金嗎？此動作將清空所有玩家倉庫！")) return;
             const d = (await get(ref(db, 'game_state'))).val();
+            const up = {};
+            Object.keys(d.players).forEach(id => {
+                const p = d.players[id];
+                const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+                let loss = 0; if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
+                up[`game_state/players/${id}/cash`] = p.cash + 2000 + p.totalComm - tax - loss;
+                up[`game_state/players/${id}/totalComm`] = 0; // 重置佣金
+                up[`game_state/players/${id}/inv`] = []; // 清空倉庫
+                up[`game_state/players/${id}/drawCount`] = 0; // 重置抽卡次數
+            });
+            up[`game_state/inventory`] = {}; // 清空市場佔用
             let r = d.round + 1; let q = d.quarter; if(r > 3){ r=1; q++; }
-            update(ref(db, 'game_state'), { round: r, quarter: q, last_action: {type:"IDLE", user:"SYS", value:"新回合開始"} });
+            up[`game_state/round`] = r;
+            up[`game_state/quarter`] = q;
+            up[`game_state/last_action`] = { type:"IDLE", user:"SYS", value:"新回合已開始，薪金已發放，倉庫已清空。" };
+            update(ref(db), up);
             document.getElementById('summary-area').style.display = "none";
         };
     </script>
