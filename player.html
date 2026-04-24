@@ -5,148 +5,150 @@
     <title>港灣 1980 - 玩家控制器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #bb9af7; }
+        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #bb9af7; --green: #9ece6a; }
         body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
         .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #414868; }
-        h3 { margin-top: 0; color: var(--accent); border-bottom: 1px solid #414868; padding-bottom: 5px; }
-        
-        /* 產品列表風格 */
+        h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .stat-box { background: #16161e; padding: 10px; border-radius: 8px; text-align: center; }
+        .stat-box span { display: block; font-size: 0.7em; color: #565f89; }
         .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .prod-btn { background: #313244; border: 1px solid #565f89; color: #fff; padding: 10px; border-radius: 8px; font-size: 0.85em; text-align: left; }
-        .prod-btn span { display: block; font-size: 0.7em; color: #9ece6a; }
-
-        .action-btn { background: #f7768e; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1.1em; margin-bottom: 10px; }
-        .role-display { background: #16161e; padding: 10px; border-radius: 8px; font-size: 0.9em; line-height: 1.4; color: #e0af68; }
+        .prod-btn { background: #313244; border: 1px solid #565f89; color: #fff; padding: 10px; border-radius: 8px; font-size: 0.8em; text-align: left; }
+        .prod-btn:disabled { opacity: 0.2; color: #565f89; }
+        .card-box { background: #16161e; border: 1px solid var(--accent); padding: 8px; border-radius: 6px; margin-bottom: 8px; font-size: 0.8em; }
+        .btn { background: #7aa2f7; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-sell { background: #f7768e; margin-top: 10px; font-size: 1.1em; }
     </style>
 </head>
 <body>
 
-    <div style="text-align:center; padding: 10px;">
-        <h2 id="pId-display">正在連線...</h2>
+    <h2 id="pId-display" style="text-align:center; color: var(--accent);">連線中...</h2>
+
+    <div class="stat-grid">
+        <div class="stat-box"><span>身分</span><div id="my-role">-</div></div>
+        <div class="stat-box"><span>現金</span><div id="my-cash" style="color:var(--green)">$0</div></div>
     </div>
 
     <div class="section">
-        <h3>🎭 我的秘密角色</h3>
-        <div id="role-box" class="role-display">等待遊戲開始...</div>
+        <h3>🃏 事件手牌 (上限 2)</h3>
+        <div id="hand-cards"></div>
+        <button class="btn" style="background:var(--green); color:#1a1b26" onclick="drawEvent()">🃏 抽取事件卡</button>
     </div>
 
     <div class="section">
-        <h3>📦 1980 入貨清單 (點擊入貨)</h3>
-        <div class="product-grid" id="product-list">
-            </div>
+        <h3>🛒 入貨區 (不可重複)</h3>
+        <div class="product-grid" id="product-list"></div>
     </div>
 
-    <div class="section">
-        <h3>📢 實時動作</h3>
-        <button class="action-btn" onclick="commitAction('SELL', '準備推銷')">開始 90s 推銷倒數</button>
-        <button class="action-btn" style="background:#7aa2f7" onclick="commitAction('EVENT', '啟動事件')">打出隨機事件卡</button>
-    </div>
+    <button class="btn btn-sell" onclick="commitAction('SELL', '開始 90s 推銷！')">📢 開始推銷倒數</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // 貼上與平板端相同的 Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
             authDomain: "harbour1980-bac14.firebaseapp.com",
-            projectId: "harbour1980-bac14",
             databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com",
+            projectId: "harbour1980-bac14",
             appId: "1:1010384901946:web:302f99b7565aa9063aa203"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
-        document.getElementById('pId-display').innerText = `控制中心 - ${pId}`;
+        document.getElementById('pId-display').innerText = `玩家控制 - ${pId}`;
 
-        // 12 件產品數據
         const PRODUCTS = [
-            { n: "波士機", d: "金/手持", p: 5000 }, { n: "全能王", d: "銀/手持", p: 3000 },
-            { n: "神機", d: "銅/手持", p: 1000 }, { n: "文書神器", d: "普/手持", p: 500 },
-            { n: "隔世大師", d: "金/佩戴", p: 5000 }, { n: "潮流環", d: "銀/佩戴", p: 3000 },
-            { n: "健康神", d: "銅/佩戴", p: 1000 }, { n: "復古錶", d: "普/佩戴", p: 500 },
-            { n: "無敵衫", d: "金/家居", p: 5000 }, { n: "速乾神", d: "銀/家居", p: 3000 },
-            { n: "養生杯", d: "銅/家居", p: 1000 }, { n: "棉花神", d: "普/家居", p: 500 }
+            { id: "i1", n: "波士機", p: 5000 }, { id: "i2", n: "全能王", p: 3000 },
+            { id: "i3", n: "神機", p: 1000 }, { id: "i4", n: "文書神器", p: 500 },
+            { id: "i5", n: "隔世大師", p: 5000 }, { id: "i6", n: "潮流環", p: 3000 },
+            { id: "i7", n: "健康神", p: 1000 }, { id: "i8", n: "復古錶", p: 500 },
+            { id: "i9", n: "無敵衫", p: 5000 }, { id: "i10", n: "速乾神", p: 3000 },
+            { id: "i11", n: "養生杯", p: 1000 }, { id: "i12", n: "棉花神", p: 500 }
         ];
 
-        // 生成按鈕
-        const listEl = document.getElementById('product-list');
-        PRODUCTS.forEach(item => {
-            let btn = document.createElement('button');
-            btn.className = 'prod-btn';
-            btn.innerHTML = `${item.n}<span>${item.d}<br>按金: $${item.p}</span>`;
-            btn.onclick = () => commitAction('DRAFT', `入貨：${item.n}`);
-            listEl.appendChild(btn);
-        });
-
-        // 監聽自己的角色數據
-        onValue(ref(db, `game_state/players/${pId}`), (snapshot) => {
+        onValue(ref(db, 'game_state'), (snapshot) => {
             const data = snapshot.val();
-            if(data && data.role) {
-                document.getElementById('role-box').innerText = `${data.role.n}\n技能：${data.role.d}`;
+            if (!data) return;
+            const me = data.players[pId];
+            const invGlobal = data.inventory || {};
+
+            document.getElementById('my-role').innerText = me.role.n;
+            document.getElementById('my-cash').innerText = `$${me.cash}`;
+
+            const handEl = document.getElementById('hand-cards');
+            handEl.innerHTML = "";
+            if(me.hand) {
+                me.hand.forEach((c, idx) => {
+                    handEl.innerHTML += `<div class="card-box"><b>${c.n}</b><br>${c.d} <button onclick="useCard(${idx})" style="float:right">使用</button></div>`;
+                });
             }
+
+            const listEl = document.getElementById('product-list');
+            listEl.innerHTML = "";
+            PRODUCTS.forEach(item => {
+                const taker = invGlobal[item.id];
+                let btn = document.createElement('button');
+                btn.className = 'prod-btn';
+                if(taker) {
+                    btn.disabled = true;
+                    btn.innerHTML = `${item.n}<br><span style="font-size:0.7em">(已被 ${taker} 入貨)</span>`;
+                } else {
+                    btn.innerHTML = `${item.n}<br><span style="color:var(--green)">$${item.p}</span>`;
+                    btn.onclick = () => draftItem(item);
+                }
+                listEl.appendChild(btn);
+            });
         });
 
-        // 傳送動作到 Firebase
-window.commitAction = function(type, val) {
-    // 確保路徑同 tablet.html 監聽的一致
-    update(ref(db, 'game_state/last_action'), {
-        user: pId,
-        type: type,
-        value: val,
-        time: Date.now()
-    }).then(() => {
-        alert("傳送成功！"); // 加個 Alert 測試有無行到呢一步
-    }).catch((error) => {
-        alert("出事喇: " + error.message); // 如果失敗會彈原因
-    });
-};
-        // 抽卡功能：從 Deck 攞第一張，放入 Hand
-window.drawEvent = function() {
-    const playerRef = ref(db, `game_state/players/${pId}`);
-    const deckRef = ref(db, `game_state/event_deck`);
+        window.draftItem = async function(item) {
+            const snap = await get(ref(db, `game_state/inventory/${item.id}`));
+            if(snap.exists()) return alert("俾人入咗先喇！");
+            
+            const pSnap = await get(ref(db, `game_state/players/${pId}`));
+            let pData = pSnap.val();
+            if(pData.cash < item.p) return alert("唔夠錢入貨！");
 
-    // 1. 先拎玩家手牌資料
-    get(playerRef).then((pSnapshot) => {
-        let hand = pSnapshot.val().hand || [];
-        if (hand.length >= 2) return alert("手牌已滿（最多 2 張）！");
+            let newInv = pData.inv || [];
+            newInv.push(item.n);
 
-        // 2. 再拎卡池資料
-        get(deckRef).then((dSnapshot) => {
-            let deck = dSnapshot.val() || [];
-            if (deck.length === 0) return alert("卡池已經抽晒喇！");
+            const updates = {};
+            updates[`game_state/inventory/${item.id}`] = pId;
+            updates[`game_state/players/${pId}/inv`] = newInv;
+            updates[`game_state/players/${pId}/cash`] = pData.cash - item.p;
+            updates[`game_state/last_action`] = { user: pId, type: "DRAFT", value: `入咗貨: ${item.n}`, time: Date.now() };
+            update(ref(db), updates);
+        };
 
-            // 3. 抽走第一張 (shift)
-            const newCard = deck.shift();
-            hand.push(newCard);
+        window.drawEvent = async function() {
+            const pSnap = await get(ref(db, `game_state/players/${pId}`));
+            let hand = pSnap.val().hand || [];
+            if(hand.length >= 2) return alert("手牌滿咗喇！");
 
-            // 4. 更新回 Firebase (同時更新玩家手牌同剩餘卡池)
-            update(playerRef, { hand: hand });
-            set(deckRef, deck); // 更新剩餘卡池
+            const dSnap = await get(ref(db, `game_state/event_deck`));
+            let deck = dSnap.val() || [];
+            if(deck.length === 0) return alert("卡池空喇！");
 
-            // 5. 通知大家
-            commitAction('DRAW', `抽到咗：${newCard.n}`);
-        });
-    });
-};
+            const card = deck.shift();
+            hand.push(card);
+            update(ref(db, `game_state/players/${pId}`), { hand: hand });
+            set(ref(db, `game_state/event_deck`), deck);
+            commitAction('DRAW', `抽到咗: ${card.n}`);
+        };
 
-// 使用事件卡功能
-window.useEvent = function(index) {
-    const playerRef = ref(db, `game_state/players/${pId}`);
-    
-    get(playerRef).then((s) => {
-        let hand = s.val().hand || [];
-        const usedCard = hand[index];
-        
-        // 從手牌移除
-        hand.splice(index, 1);
-        update(playerRef, { hand: hand });
+        window.useCard = async function(idx) {
+            const pSnap = await get(ref(db, `game_state/players/${pId}`));
+            let hand = pSnap.val().hand || [];
+            const card = hand[idx];
+            hand.splice(idx, 1);
+            update(ref(db, `game_state/players/${pId}`), { hand: hand });
+            commitAction('EVENT', `發動: ${card.n}!`);
+        };
 
-        // 觸發效果
-        commitAction('EVENT', `發動：${usedCard.n}！效果：${usedCard.d}`);
-    });
-};
+        window.commitAction = function(type, val) {
+            update(ref(db, 'game_state/last_action'), { user: pId, type: type, value: val, time: Date.now() });
+        };
     </script>
 </body>
 </html>
