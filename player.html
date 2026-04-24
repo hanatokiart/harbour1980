@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>港灣 1980 - 玩家控制器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #bb9af7; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
+        .section { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #414868; }
+        h3 { margin-top: 0; color: var(--accent); border-bottom: 1px solid #414868; padding-bottom: 5px; }
+        
+        /* 產品列表風格 */
+        .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .prod-btn { background: #313244; border: 1px solid #565f89; color: #fff; padding: 10px; border-radius: 8px; font-size: 0.85em; text-align: left; }
+        .prod-btn span { display: block; font-size: 0.7em; color: #9ece6a; }
+
+        .action-btn { background: #f7768e; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1.1em; margin-bottom: 10px; }
+        .role-display { background: #16161e; padding: 10px; border-radius: 8px; font-size: 0.9em; line-height: 1.4; color: #e0af68; }
+    </style>
+</head>
+<body>
+
+    <div style="text-align:center; padding: 10px;">
+        <h2 id="pId-display">正在連線...</h2>
+    </div>
+
+    <div class="section">
+        <h3>🎭 我的秘密角色</h3>
+        <div id="role-box" class="role-display">等待遊戲開始...</div>
+    </div>
+
+    <div class="section">
+        <h3>📦 1980 入貨清單 (點擊入貨)</h3>
+        <div class="product-grid" id="product-list">
+            </div>
+    </div>
+
+    <div class="section">
+        <h3>📢 實時動作</h3>
+        <button class="action-btn" onclick="commitAction('SELL', '準備推銷')">開始 90s 推銷倒數</button>
+        <button class="action-btn" style="background:#7aa2f7" onclick="commitAction('EVENT', '啟動事件')">打出隨機事件卡</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // 貼上與平板端相同的 Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
+            authDomain: "harbour1980-bac14.firebaseapp.com",
+            projectId: "harbour1980-bac14",
+            databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com",
+            appId: "1:1010384901946:web:302f99b7565aa9063aa203"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const pId = new URLSearchParams(window.location.search).get('id') || 'P1';
+        document.getElementById('pId-display').innerText = `控制中心 - ${pId}`;
+
+        // 12 件產品數據
+        const PRODUCTS = [
+            { n: "波士機", d: "金/手持", p: 5000 }, { n: "全能王", d: "銀/手持", p: 3000 },
+            { n: "神機", d: "銅/手持", p: 1000 }, { n: "文書神器", d: "普/手持", p: 500 },
+            { n: "隔世大師", d: "金/佩戴", p: 5000 }, { n: "潮流環", d: "銀/佩戴", p: 3000 },
+            { n: "健康神", d: "銅/佩戴", p: 1000 }, { n: "復古錶", d: "普/佩戴", p: 500 },
+            { n: "無敵衫", d: "金/家居", p: 5000 }, { n: "速乾神", d: "銀/家居", p: 3000 },
+            { n: "養生杯", d: "銅/家居", p: 1000 }, { n: "棉花神", d: "普/家居", p: 500 }
+        ];
+
+        // 生成按鈕
+        const listEl = document.getElementById('product-list');
+        PRODUCTS.forEach(item => {
+            let btn = document.createElement('button');
+            btn.className = 'prod-btn';
+            btn.innerHTML = `${item.n}<span>${item.d}<br>按金: $${item.p}</span>`;
+            btn.onclick = () => commitAction('DRAFT', `入貨：${item.n}`);
+            listEl.appendChild(btn);
+        });
+
+        // 監聽自己的角色數據
+        onValue(ref(db, `game_state/players/${pId}`), (snapshot) => {
+            const data = snapshot.val();
+            if(data && data.role) {
+                document.getElementById('role-box').innerText = `${data.role.n}\n技能：${data.role.d}`;
+            }
+        });
+
+        // 傳送動作到 Firebase
+        window.commitAction = function(type, val) {
+            update(ref(db, 'game_state/last_action'), {
+                user: pId,
+                type: type,
+                value: val,
+                time: Date.now()
+            });
+            console.log("Action Sent:", type);
+        };
+    </script>
+</body>
+</html>

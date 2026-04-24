@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>港灣 1980 - 中央管理系統</title>
+    <style>
+        :root { --bg: #1a1b26; --card: #24283b; --text: #c0caf5; --accent: #f7768e; }
+        body { background: var(--bg); color: var(--text); font-family: 'PingFang HK', sans-serif; margin: 0; padding: 20px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
+        .p-panel { background: var(--card); border: 2px solid #414868; padding: 15px; border-radius: 12px; }
+        .p-name { font-size: 1.5em; font-weight: bold; color: #7aa2f7; border-bottom: 1px solid #414868; margin-bottom: 10px; }
+        
+        /* 倒數計時器 */
+        #timer-box { position: fixed; top: 20px; right: 20px; width: 120px; height: 120px; border-radius: 50%; 
+                      border: 8px solid var(--accent); display: flex; align-items: center; justify-content: center; 
+                      font-size: 2.5em; font-weight: bold; background: rgba(0,0,0,0.5); visibility: hidden; }
+
+        /* 全屏通知層 */
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); 
+                    display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        #overlay h1 { font-size: 5em; margin: 0; color: #bb9af7; }
+        #overlay p { font-size: 2em; color: #cfc9c2; }
+
+        .inv-item { font-size: 0.8em; background: #414868; margin: 2px; padding: 2px 5px; border-radius: 4px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <h1 style="letter-spacing: 5px;">🏮 港灣 1980 🏮</h1>
+    <div id="round-tag" style="font-size: 1.2em; color: #e0af68;">等待玩家準備...</div>
+
+    <div id="timer-box">90</div>
+
+    <div class="grid" id="player-grid">
+        </div>
+
+    <div id="overlay">
+        <h1 id="over-title">ACTION</h1>
+        <p id="over-user"></p>
+        <div id="over-content" style="margin-top:20px;"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCP91f7RSqqawxB6alEuje8eCpchX3gPWI",
+            authDomain: "harbour1980-bac14.firebaseapp.com",
+            projectId: "harbour1980-bac14",
+            databaseURL: "https://harbour1980-bac14-default-rtdb.firebaseio.com", // 確保 URL 正確
+            storageBucket: "harbour1980-bac14.firebasestorage.app",
+            messagingSenderId: "1010384901946",
+            appId: "1:1010384901946:web:302f99b7565aa9063aa203"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 初始化遊戲數據
+        const ROLES = [
+            { n: "港產女王", d: "金級佣金 +$2000" },
+            { n: "品質大師", d: "免疫推銷扣分" },
+            { n: "格價大叔", d: "入貨成本 -$500" },
+            { n: "潮流先鋒", d: "無視換季罰分" }
+        ];
+
+        window.initGame = function() {
+            let sRoles = [...ROLES].sort(() => Math.random() - 0.5);
+            set(ref(db, 'game_state'), {
+                round: 1,
+                season: "春",
+                players: {
+                    P1: { cash: 10000, ap: 0, role: sRoles[0], inv: [] },
+                    P2: { cash: 10000, ap: 0, role: sRoles[1], inv: [] },
+                    P3: { cash: 10000, ap: 0, role: sRoles[2], inv: [] },
+                    P4: { cash: 10000, ap: 0, role: sRoles[3], inv: [] }
+                },
+                last_action: { type: "IDLE", user: "SYS" }
+            });
+        };
+
+        // 監聽數據變化
+        onValue(ref(db, 'game_state'), (snapshot) => {
+            const data = snapshot.val();
+            if(!data) return;
+
+            // 更新面板
+            let html = "";
+            for(let id in data.players) {
+                let p = data.players[id];
+                html += `
+                    <div class="p-panel">
+                        <div class="p-name">${id}</div>
+                        <div style="font-size:0.8em; color:#565f89; margin-bottom:10px;">${p.role.n}</div>
+                        <div style="font-size:1.4em; color:#9ece6a;">$${p.cash}</div>
+                        <div style="color:#bb9af7;">${p.ap} AP</div>
+                        <div id="inv-${id}" style="margin-top:10px;"></div>
+                    </div>
+                `;
+            }
+            document.getElementById('player-grid').innerHTML = html;
+
+            // 處理動作彈窗
+            if(data.last_action.user !== "SYS") {
+                triggerOverlay(data.last_action);
+            }
+        });
+
+        let timerInterval;
+        function triggerOverlay(action) {
+            const over = document.getElementById('overlay');
+            const title = document.getElementById('over-title');
+            const user = document.getElementById('over-user');
+            
+            over.style.display = "flex";
+            user.innerText = `玩家 ${action.user} 執行中...`;
+            
+            if(action.type === "SELL") {
+                title.innerText = "📣 正在推銷";
+                startTimer(90);
+            } else if(action.type === "DRAFT") {
+                title.innerText = "📦 正在入貨";
+            } else if(action.type === "EVENT") {
+                title.innerText = "🗞️ 事件發生";
+            }
+
+            // 5秒後自動關閉通知（計時器會繼續）
+            setTimeout(() => {
+                over.style.display = "none";
+                update(ref(db, 'game_state/last_action'), { user: "SYS", type: "IDLE" });
+            }, 4000);
+        }
+
+        function startTimer(sec) {
+            clearInterval(timerInterval);
+            const box = document.getElementById('timer-box');
+            box.style.visibility = "visible";
+            let timeLeft = sec;
+            box.innerText = timeLeft;
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                box.innerText = timeLeft;
+                if(timeLeft <= 10) box.style.borderColor = "red";
+                if(timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    box.style.visibility = "hidden";
+                    alert("時間到！請買家投票。");
+                }
+            }, 1000);
+        }
+    </script>
+
+    <button onclick="initGame()" style="margin-top:50px; background:#414868; color:white; border:none; padding:10px; cursor:pointer; opacity:0.3;">[ 重置遊戲 ]</button>
+</body>
+</html>
