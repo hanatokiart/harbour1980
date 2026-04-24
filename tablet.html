@@ -104,39 +104,51 @@ window.confirmSettlement = async () => {
     const up = {};
     const pData = d.players;
 
-    // 1. 計算底薪與稅務 (這部分確保錢會變)
     Object.keys(pData).forEach(id => {
         const p = pData[id];
-        const tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
-        let loss = 0; 
-        if(p.inv) p.inv.forEach(i => loss += (i.p * 0.5));
         
-        // 核心公式：現有錢 + 底薪 + 累積佣金 - 稅 - 蝕一半
-        const newCash = p.cash + 2000 + (p.totalComm || 0) - tax - loss;
+        // 1. 處理稅務 (稅務減免卡)
+        let tax = (!p.inv || p.inv.length === 0) ? 500 : 0;
+        if (p.lastEvent === "稅務減免") tax = 0;
+
+        // 2. 處理未售損失 (壞貨退回卡)
+        let loss = 0; 
+        if(p.inv) {
+            p.inv.forEach(i => {
+                // 如果有「壞貨退回」，退 100%，即係 loss = 0
+                // 如果冇，就要蝕入貨價 (i.p) 嘅 50%
+                if (p.lastEvent !== "壞貨退回") {
+                    loss += (i.p * 0.5);
+                }
+            });
+        }
+        
+        // 核心公式：玩家現金(已經包含成交回本) + 底薪($2000) - 稅 - 蝕一半
+        // 注意：totalComm 只係顯示用，實際錢喺成交嗰下已經加咗入 cash
+        const newCash = p.cash + 2000 - tax - loss;
         
         up[`game_state/players/${id}/cash`] = newCash;
-        up[`game_state/players/${id}/totalComm`] = 0; // 重置本輪佣金
-        up[`game_state/players/${id}/inv`] = [];      // 清空本輪持貨
-        up[`game_state/players/${id}/drawCount`] = 0; // 重置抽卡次數
-        up[`game_state/players/${id}/lastEvent`] = "無"; // 清除上輪事件
-        up[`game_state/players/${id}/hand`] = p.hand || "無"; // 手牌保留
+        up[`game_state/players/${id}/totalComm`] = 0; 
+        up[`game_state/players/${id}/inv`] = [];      
+        up[`game_state/players/${id}/drawCount`] = 0; 
+        up[`game_state/players/${id}/lastEvent`] = "無"; 
+        up[`game_state/players/${id}/hand`] = p.hand || "無"; 
     });
 
-    // 2. 處理季度結束 (第 3 輪結束時)
+    // 輪次遞進邏輯...
     let nextR = d.round + 1;
     let nextQ = d.quarter;
     if (nextR > 3) {
         nextR = 1;
         nextQ += 1;
-        // 這裡可以觸發 AP 結算 Log
-        up[`game_state/last_action`] = { user: "SYSTEM", value: "🌟 季度結束！請根據數據頒發 AP 成就點。" };
+        up[`game_state/last_action`] = { user: "SYSTEM", value: "🌟 季度結束！請頒發 AP。" };
     } else {
-        up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成，底薪已發放。` };
+        up[`game_state/last_action`] = { user: "SYSTEM", value: `第 ${d.round} 輪結算完成。` };
     }
 
     up[`game_state/round`] = nextR;
     up[`game_state/quarter`] = nextQ;
-    up[`game_state/inventory`] = {}; // 釋放市場貨源
+    up[`game_state/inventory`] = {}; 
 
     await update(ref(db), up);
     document.getElementById('summary-box').style.display = 'none';
